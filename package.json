@@ -1,0 +1,42 @@
+{
+  "name": "grain-and-good",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "node scripts/generate-client.cjs",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:validate": "node scripts/check-schema.cjs",
+    "db:migrate": "prisma migrate deploy",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e"
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@prisma/adapter-pg": "^6.19.0",
+    "@prisma/client": "^6.19.0",
+    "ioredis": "^5.4.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.9",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@playwright/test": "^1.65.0",
+    "@prisma/internals": "6.19.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prettier": "^3.10.0",
+    "prisma": "^6.19.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

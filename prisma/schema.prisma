@@ -1,0 +1,336 @@
+generator client {
+ provider = "prisma-client-js"
+ engineType = "client"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum Role {
+ CUSTOMER
+ RETAILER
+ ADMIN
+ ORDER_MANAGER
+ INVENTORY_MANAGER
+ DELIVERY_MANAGER
+ ACCOUNTANT
+ DELIVERY_PARTNER
+}
+enum OrderStatus {
+ PLACED
+ CONFIRMED
+ PACKED
+ OUT_FOR_DELIVERY
+ DELIVERED
+ CANCELLED
+}
+enum PaymentStatus {
+ PENDING
+ AUTHORIZED
+ PAID
+ FAILED
+ PARTIALLY_PAID
+ REFUNDED
+ CREDIT_DUE
+ COD_PENDING
+ COD_COLLECTED
+}
+model User {
+ id String @id @default(cuid())
+ phone String @unique
+ name String
+ email String?
+ role Role @default(CUSTOMER)
+ blocked Boolean @default(false)
+ createdAt DateTime @default(now())
+ retailer Retailer?
+ addresses Address[]
+ orders Order[]
+ wallet Wallet?
+ reviews Review[]
+ notifications Notification[]
+}
+model Retailer {
+ id String @id @default(cuid())
+ userId String @unique
+ user User @relation(fields:[userId],references:[id])
+ businessName String
+ gstin String?
+ panEncrypted String?
+ kycObjectKey String?
+ status String @default("PENDING")
+ creditLimit Int @default(0)
+ creditDays Int @default(7)
+ priceListId String?
+ ledger CreditLedger[]
+ prices RetailerPrice[]
+}
+model Address {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ label String @default("Home")
+ line String
+ pincode String
+ latitude Float?
+ longitude Float?
+}
+model Category {
+ id String @id @default(cuid())
+ name String @unique
+ products Product[]
+}
+model Product {
+ id String @id
+ name String
+ hindi String?
+ categoryId String
+ category Category @relation(fields:[categoryId],references:[id])
+ description String?
+ image String
+ hsn String
+ gst Int @default(5)
+ active Boolean @default(true)
+ variants ProductVariant[]
+ reviews Review[]
+ @@index([categoryId,active])
+}
+model ProductVariant {
+ id String @id
+ productId String
+ product Product @relation(fields:[productId],references:[id])
+ pack String
+ price Int
+ mrp Int
+ stock Int @default(0)
+ reserved Int @default(0)
+ lowStockThreshold Int @default(10)
+ tiers PriceTier[]
+ movements StockMovement[]
+ retailerPrices RetailerPrice[]
+ @@index([productId])
+}
+model PriceTier {
+ id String @id @default(cuid())
+ variantId String
+ variant ProductVariant @relation(fields:[variantId],references:[id])
+ minimum Int
+ price Int
+ @@unique([variantId,minimum])
+}
+model RetailerPrice {
+ id String @id @default(cuid())
+ retailerId String
+ retailer Retailer @relation(fields:[retailerId],references:[id])
+ variantId String
+ variant ProductVariant @relation(fields:[variantId],references:[id])
+ price Int
+ @@unique([retailerId,variantId])
+}
+model StockMovement {
+ id String @id @default(cuid())
+ variantId String
+ variant ProductVariant @relation(fields:[variantId],references:[id])
+ quantity Int
+ reason String
+ batch String?
+ orderId String?
+ createdAt DateTime @default(now())
+ @@index([variantId,createdAt])
+}
+model Cart {
+ id String @id @default(cuid())
+ userId String @unique
+ items Json
+ updatedAt DateTime @updatedAt
+}
+model Order {
+ id String @id @default(cuid())
+ idempotencyKey String @unique
+ requestHash String
+ userId String?
+ user User? @relation(fields:[userId],references:[id])
+ customerName String
+ phone String
+ address String
+ pincode String
+ slot String
+ status OrderStatus @default(PLACED)
+ paymentStatus PaymentStatus @default(PENDING)
+ method String
+ subtotal Int
+ discount Int @default(0)
+ deliveryFee Int
+ total Int
+ tax Int
+ expiresAt DateTime?
+ createdAt DateTime @default(now())
+ items OrderItem[]
+ history OrderStatusHistory[]
+ payments Payment[]
+ invoice Invoice?
+ assignment DeliveryAssignment?
+ @@index([createdAt])
+ @@index([status,createdAt])
+ @@index([phone,createdAt])
+ @@index([paymentStatus,expiresAt])
+}
+model OrderItem {
+ id String @id @default(cuid())
+ orderId String
+ order Order @relation(fields:[orderId],references:[id])
+ variantId String
+ name String
+ pack String
+ quantity Int
+ price Int
+ total Int
+ gst Int
+ hsn String
+}
+model OrderStatusHistory {
+ id String @id @default(cuid())
+ orderId String
+ order Order @relation(fields:[orderId],references:[id])
+ status OrderStatus
+ note String?
+ createdAt DateTime @default(now())
+}
+model Payment {
+ id String @id @default(cuid())
+ orderId String
+ order Order @relation(fields:[orderId],references:[id])
+ gatewayOrderId String @unique
+ gatewayPaymentId String? @unique
+ amount Int
+ status PaymentStatus @default(PENDING)
+ createdAt DateTime @default(now())
+ transactions PaymentTransaction[]
+ refunds Refund[]
+}
+model PaymentTransaction {
+ id String @id @default(cuid())
+ paymentId String
+ payment Payment @relation(fields:[paymentId],references:[id])
+ eventId String @unique
+ type String
+ createdAt DateTime @default(now())
+}
+model Refund {
+ id String @id @default(cuid())
+ paymentId String
+ payment Payment @relation(fields:[paymentId],references:[id])
+ gatewayId String? @unique
+ amount Int
+ status String @default("PENDING")
+ reason String
+ createdAt DateTime @default(now())
+}
+model Wallet {
+ id String @id @default(cuid())
+ userId String @unique
+ user User @relation(fields:[userId],references:[id])
+ balance Int @default(0)
+ transactions WalletTransaction[]
+}
+model WalletTransaction {
+ id String @id @default(cuid())
+ walletId String
+ wallet Wallet @relation(fields:[walletId],references:[id])
+ amount Int
+ reference String @unique
+ createdAt DateTime @default(now())
+}
+model CreditLedger {
+ id String @id @default(cuid())
+ retailerId String
+ retailer Retailer @relation(fields:[retailerId],references:[id])
+ amount Int
+ reference String @unique
+ dueAt DateTime?
+ settled Boolean @default(false)
+ createdAt DateTime @default(now())
+ @@index([retailerId,settled,dueAt])
+}
+model Coupon {
+ code String @id
+ percent Int
+ maximum Int
+ minimum Int
+ expiresAt DateTime
+ active Boolean @default(true)
+}
+model DeliveryZone {
+ pincode String @id
+ fee Int
+ freeAbove Int
+ codLimit Int
+ active Boolean @default(true)
+}
+model DeliverySlot {
+ id String @id @default(cuid())
+ startsAt DateTime
+ endsAt DateTime
+ cutoffAt DateTime
+ capacity Int
+ booked Int @default(0)
+}
+model DeliveryAssignment {
+ id String @id @default(cuid())
+ orderId String @unique
+ order Order @relation(fields:[orderId],references:[id])
+ partnerId String
+ cashCollected Int @default(0)
+ deliveredAt DateTime?
+}
+model Invoice {
+ id String @id @default(cuid())
+ orderId String @unique
+ order Order @relation(fields:[orderId],references:[id])
+ number String @unique
+ objectKey String?
+ gstin String?
+ ewayBill String?
+ createdAt DateTime @default(now())
+}
+model Notification {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ type String
+ body String
+ read Boolean @default(false)
+ createdAt DateTime @default(now())
+}
+model Review {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ productId String
+ product Product @relation(fields:[productId],references:[id])
+ rating Int
+ text String?
+ @@unique([userId,productId])
+}
+model AuditLog {
+ id String @id @default(cuid())
+ actorId String
+ action String
+ targetId String
+ metadata Json?
+ createdAt DateTime @default(now())
+ @@index([actorId,createdAt])
+}
+model Setting {
+ key String @id
+ value Json
+}
+model StandingOrder {
+ id String @id @default(cuid())
+ retailerId String
+ items Json
+ schedule String
+ nextRunAt DateTime
+ active Boolean @default(true)
+ @@index([active,nextRunAt])
+}

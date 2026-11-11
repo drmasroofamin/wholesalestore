@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: grain
+      POSTGRES_PASSWORD: grain_local_only
+      POSTGRES_DB: grain
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grain"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:6379:6379"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  web:
+    build: .
+    ports: ["3000:3000"]
+    environment:
+      DEMO_MODE: "true"
+      APP_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://grain:grain_local_only@db:5432/grain?connection_limit=10
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+volumes:
+  postgres_data:
+  redis_data:
