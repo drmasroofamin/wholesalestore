@@ -1,4 +1,4 @@
-const CACHE = 'grain-good-v2';
+const CACHE = 'grain-good-v3';
 const ASSETS = [
   '/',
   '/icon.svg',

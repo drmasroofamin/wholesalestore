@@ -33,8 +33,9 @@ Add these under Vercel → Project → Settings → Environment Variables. Confi
 | `ACCEPT_ORDERS` | Initially `false`; enable only for controlled verification or reviewed launch |
 | `APP_ORIGIN` | Exact HTTPS store origin, such as your assigned `https://...vercel.app` URL; no trailing path |
 | `STORE_NAME` | Your actual public business name |
-| `STORE_PHONE` | Actual customer-support phone number |
-| `STORE_ADDRESS` | Merchant's public business/contact address, displayed in policies |
+| `STORE_PHONE` | Actual customer-support phone number. The public site renders this value and does not substitute a sample number. |
+| `STORE_EMAIL` | Optional public email. The contact page and footer show it only when it is set. |
+| `STORE_ADDRESS` | Optional public address. A line is shown only when it is set. |
 | `STORE_DISTRICT` | `Anantnag district` |
 | `CANCELLATION_POLICY` | Your reviewed cancellation terms; a contact-before-packing default exists |
 | `REFUND_POLICY` | Your reviewed eligibility, reporting and processing terms |

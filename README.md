@@ -134,6 +134,6 @@ Open `/reset.html` on the exact localhost address/port that failed, wait for the
 
 ## Photos and operating guides
 
-The optimized WebP photos and their licences are preserved in [public/products/CREDITS.md](public/products/CREDITS.md). They illustrate the food, not a guaranteed branded packet. Once products exist, seeding does not change their photos, names, prices or stock.
+The optimized WebP photos and their licences are listed on the public [/credits](/credits) page (`app/credits/page.tsx` and `lib/photo-credits.ts`). They illustrate the food, not a guaranteed branded packet. Once products exist, seeding does not change their photos, names, prices or stock. The catalogue keeps the existing `/products/<file>.webp` paths.
 
 [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) describes the demo workflow at the photo-update commit. Use [LIVE_LAUNCH.md](LIVE_LAUNCH.md) for the current database-backed workflow and Vercel setup.
