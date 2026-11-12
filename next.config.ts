@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 const config: NextConfig = {
   output: 'standalone',
+  // A production build must not overwrite chunks used by a running dev server.
+  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   poweredByHeader: false,
   async headers() {
     return [

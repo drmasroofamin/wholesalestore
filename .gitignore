@@ -8,3 +8,5 @@ test-results
 
 # Generated Prisma client
 .prisma/
+
+.next-dev

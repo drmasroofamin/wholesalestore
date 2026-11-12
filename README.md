@@ -133,3 +133,15 @@ Browser tests use Chromium at `/usr/bin/chromium`; set `CHROMIUM_PATH` if instal
 - 8 Playwright tests passed across desktop and mobile, including offline catalogue reload.
 - Local catalogue smoke: 100 requests at concurrency 25, zero failures, observed p95 131 ms. This shared-machine result is not a production capacity benchmark.
 - Native PostgreSQL migration CLI, Docker deployment, real SMS/payment services, new-environment restoration and the 10,000-client staging scenario were not executed.
+
+### Development runtime cache errors
+
+Development uses `.next-dev` while production builds use `.next`, so running a build cannot overwrite development chunks. Offline caching is enabled only in production; development removes this app's older service-worker registrations and caches without clearing carts or favourites.
+
+If an older checkout shows `Cannot read properties of undefined (reading 'call')`, stop running Next.js processes, pull the update and reinstall with `npm ci`. Remove generated build caches with this cross-platform command, then restart with `npm run dev`:
+
+```sh
+node -e "for (const p of ['.next', '.next-dev']) require('node:fs').rmSync(p, { recursive: true, force: true })"
+```
+
+If the page crashes before it can remove an old worker, open the browser developer tools → Application → Service Workers → Unregister for this local site, then hard-refresh. Do not delete `app/page.tsx`; it is the rendering boundary, not proof that the component import is incorrect.

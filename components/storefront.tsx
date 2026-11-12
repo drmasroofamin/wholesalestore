@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { configureOfflineCatalogue } from '@/lib/offline';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -87,7 +88,9 @@ export default function Storefront() {
         setOrder(receipt);
     } catch {}
     setReady(true);
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    void configureOfflineCatalogue(process.env.NODE_ENV === 'production').catch(() => {
+      // Offline support is optional; unavailable browser storage must not block shopping.
+    });
   }, []);
   useEffect(() => {
     if (ready) {
