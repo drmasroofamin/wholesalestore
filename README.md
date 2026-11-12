@@ -1,4 +1,4 @@
-# Grain & Good
+# zebastore
 
 A mobile-first grain-store app with a responsive storefront, guest checkout, protected merchant workspace, PostgreSQL persistence and Razorpay integration. Next.js 15 App Router, React 19, TypeScript, Prisma's JavaScript query compiler, PostgreSQL and Redis.
 
@@ -27,7 +27,7 @@ npm run db:seed
 npm run admin:password
 ```
 
-The compose credentials are local development values only. The seed preserves existing prices/stock and creates new starter SKUs with zero physical stock. Admin must review the catalogue and enter real stock before opening orders. No delivery zone is silently enabled.
+The compose credentials are local development values only. The seed inserts starter SKUs at zero physical stock when the catalog is empty, and leaves an existing catalog unchanged. Admin must review the catalogue and enter real stock before opening orders. No delivery zone is silently enabled.
 
 Set `DEMO_MODE=false` to use the real database-backed workflow. Keep `ACCEPT_ORDERS=false` during configuration; enable it explicitly for controlled verification and reviewed launch. `/api/health` reports operational readiness without exposing credentials. `/admin` redirects to the authenticated merchant workspace in live mode.
 
@@ -109,7 +109,7 @@ Live checkout body: `{items:[{id,quantity}],name,phone,address,pincode,slot,paym
 
 ## Deployment and capacity
 
-Vercel configuration is included; run `npm run build`. Production runtime settings are server-only. Configure managed PostgreSQL/Redis and run reviewed migrations before enabling actual orders. The Dockerfile uses Next's standalone output and a non-root runtime user. Do not use local compose passwords in production.
+Vercel configuration is included. Its build command migrates the database, seeds an empty catalog, then runs `npm run build`. Seeding skips once any product exists and does not enable sample stock. Production runtime settings are server-only. Configure managed PostgreSQL/Redis before enabling actual orders. The Dockerfile uses Next's standalone output and a non-root runtime user. Do not use local compose passwords in production.
 
 HTML reads the server's current mode at request time; no production database call is needed to render the initial shell. Static assets are CDN-friendly and public catalogue data has a short shared cache. Admin and private receipts are always dynamic and uncached. Set a bounded connection pool (`DATABASE_POOL_MAX`, default 2 on Vercel), use the managed provider's pooler, and account for total connections across replicas.
 
@@ -134,6 +134,6 @@ Open `/reset.html` on the exact localhost address/port that failed, wait for the
 
 ## Photos and operating guides
 
-The optimized WebP photos and their licences are preserved in [public/products/CREDITS.md](public/products/CREDITS.md). They illustrate the food, not a guaranteed branded packet. The seed refreshes existing product photos/names without overwriting their prices or stock.
+The optimized WebP photos and their licences are preserved in [public/products/CREDITS.md](public/products/CREDITS.md). They illustrate the food, not a guaranteed branded packet. Once products exist, seeding does not change their photos, names, prices or stock.
 
 [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) describes the demo workflow at the photo-update commit. Use [LIVE_LAUNCH.md](LIVE_LAUNCH.md) for the current database-backed workflow and Vercel setup.

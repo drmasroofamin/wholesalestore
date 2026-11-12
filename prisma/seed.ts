@@ -2,6 +2,10 @@ import { database } from '../lib/db';
 import { products } from '../lib/catalog';
 const db = database();
 async function main() {
+  if ((await db.product.count()) > 0) {
+    console.log('Catalog already present; skipping seed.');
+    return;
+  }
   for (const p of products) {
     const c = await db.category.upsert({
       where: { name: p.category },

@@ -1,6 +1,6 @@
 > **Scope:** This guide records the demo behaviour at commit `a6bb8f3` and applies to `DEMO_MODE=true`. The project now also supports saved orders, protected admin and payment reconciliation in live mode. For the current live workflow, actual-order verification and Vercel deployment, use [LIVE_LAUNCH.md](../LIVE_LAUNCH.md).
 
-# Grain & Good — operations guide
+# zebastore — operations guide
 
 This guide is for the store owner. It describes what the shop actually does today, what you must change before taking real orders, and what a customer can and cannot do.
 
@@ -18,13 +18,13 @@ Work through this list. For each item, “Admin screen” means the page at `/ad
 
 | What customers see                                                   | Where it is set today                                                                          | What to change before launch                                                                                    |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| “grain & good”, the tagline “ROOTED IN GOODNESS”, and the wheat mark | `components/storefront.tsx` (header and footer)                                                | Edit that file. There is no brand screen that publishes a new name.                                             |
-| Browser title and description                                        | `app/layout.tsx`                                                                               | Edit the `title` and `description`.                                                                             |
+| Store name (default “zebastore”), the tagline “ROOTED IN GOODNESS”, and the wheat mark | Header and footer in `components/storefront.tsx`. The name comes from `liveSettings().name` when the server is fully configured, otherwise `STORE_NAME`, otherwise “zebastore”. | Set `STORE_NAME`. The tagline and wheat mark stay in that file. There is no brand screen that publishes a new name. |
+| Browser title, description and Open Graph tags                      | `app/layout.tsx`                                                                               | The title and site name follow the store name above. Edit the description in that file.                         |
 | Home-page headline, announcement bar, and the three trust lines      | `components/storefront.tsx`                                                                    | Edit the text in that file. The Hindi headline is the only translated headline.                                 |
 | Phone number in the footer, `+91 194 245 0000`                       | `components/storefront.tsx` footer                                                             | Replace this sample number with your real support line.                                                         |
-| App icon and install name                                            | `public/icon.svg`, `public/icon-192.png`, `public/icon-512.png`, `public/manifest.webmanifest` | Replace the icon files and the name in the manifest.                                                            |
+| App icon and install name                                            | `public/icon.svg`, `public/icon-192.png`, `public/icon-512.png`, `app/manifest.ts`             | Replace the icon files. The manifest name follows the store name above.                                         |
 | Homepage photo                                                       | `public/harvest.webp`                                                                          | Replace the file and keep the credit in `public/products/CREDITS.md`.                                           |
-| Admin “Store name”                                                   | `/admin` → **Settings**                                                                        | This box starts as “Grain & Good”. **Save demo preferences** only shows a message. It does not rename the shop. |
+| Admin “Store name”                                                   | `/admin` → **Settings**                                                                        | This box starts as the configured store name, or “zebastore”. **Save demo preferences** only shows a message. It does not rename the shop. |
 
 The admin header always says “Merchant Admin / Demo workspace”. That label is hardcoded in `app/admin/page.tsx`. It is not a signed-in user.
 
@@ -51,7 +51,7 @@ Selling prices are GST-inclusive. The cart shows the included GST using a 5% spl
 
 - `/admin` → **Products** lets you type a rupee price. It lives in that browser tab only. The note under the table says demo changes do not modify the storefront or the database.
 - `/admin` → **Settings** does not have a price list.
-- `npm run db:seed` reads `.env` when that file exists, then copies new products into PostgreSQL. If a product already exists it refreshes the photo and name only. It does **not** overwrite variant price or stock. The shop still ignores those database prices.
+- `npm run db:seed` reads `.env` when that file exists, otherwise the process environment. It inserts the starter products only when the catalog is empty, at zero stock unless `SEED_SAMPLE_STOCK=true`. If any product already exists, it skips and does not change photos, names, prices or stock. The shop still ignores those database prices.
 
 Wholesale numbers are stored as price tiers (10 bags at the wholesale price, 50 bags at 4% less) by `prisma/seed.ts`. Checkout always uses the household price. Registering a shop does not unlock those tiers.
 
@@ -147,7 +147,7 @@ Useful commands:
 ```sh
 npm run db:generate
 npm run db:migrate    # reviewed SQL migrations for a real database
-npm run db:seed       # inserts the 8 products; refreshes photos on later runs
+npm run db:seed       # inserts the 8 products only when the catalog is empty
 ```
 
 `npm run db:push` is only for a disposable development database. Do not use it on a database you need to keep.

@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { money, products } from '@/lib/catalog';
+import { BrandWord } from './brand-word';
 import '@/app/admin/admin.css';
 const initialOrders = [
   {
@@ -110,7 +111,7 @@ const tabs = [
   { name: 'Reports', icon: TrendingUp },
   { name: 'Settings', icon: Settings },
 ];
-export default function Admin() {
+export default function Admin({ name = 'zebastore' }: { name?: string }) {
   const [tab, setTab] = useState('Overview'),
     [query, setQuery] = useState(''),
     [status, setStatus] = useState('All statuses'),
@@ -155,7 +156,7 @@ export default function Admin() {
     );
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'grain-good-demo-export.csv';
+    a.download = 'zebastore-demo-export.csv';
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -170,7 +171,8 @@ export default function Admin() {
         <a href="/" className="brand">
           <Wheat size={28} />
           <div>
-            grain<span>&</span>good<small>MERCHANT WORKSPACE</small>
+            <BrandWord name={name} />
+            <small>MERCHANT WORKSPACE</small>
           </div>
         </a>
         <span className="sidebar-caption">YOUR WORKSPACE</span>
@@ -906,7 +908,7 @@ export default function Admin() {
               >
                 <label>
                   Store name
-                  <input defaultValue="Grain & Good" required />
+                  <input defaultValue={name} required />
                 </label>
                 <label>
                   Demo delivery pincodes
@@ -926,7 +928,7 @@ export default function Admin() {
           )}
           <div className="admin-footnote">
             <Leaf size={12} /> Made for the way your business grows.
-            <span>Grain & Good · Merchant workspace</span>
+            <span>{name} · Merchant workspace</span>
           </div>
         </main>
       </div>

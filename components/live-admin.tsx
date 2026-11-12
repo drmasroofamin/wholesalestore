@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Wheat, RefreshCw, LogOut, Package, ShoppingBag, MapPin, X, Phone } from 'lucide-react';
 import { money } from '@/lib/catalog';
+import { BrandWord } from './brand-word';
 import '@/app/admin/admin.css';
 type Order = {
   id: string;
@@ -52,7 +53,7 @@ async function request(url: string, options?: RequestInit) {
   if (!r.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
-export default function LiveAdmin() {
+export default function LiveAdmin({ name = 'zebastore' }: { name?: string }) {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
   const [tab, setTab] = useState('Orders'),
@@ -129,7 +130,8 @@ export default function LiveAdmin() {
         <a className="brand" href="/">
           <Wheat />
           <div>
-            grain<span>&</span>good<small>LIVE MERCHANT WORKSPACE</small>
+            <BrandWord name={name} />
+            <small>LIVE MERCHANT WORKSPACE</small>
           </div>
         </a>
         <nav style={{ marginTop: 45 }}>
