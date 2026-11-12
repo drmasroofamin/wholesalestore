@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { quote } from '@/lib/rules';
 import { sameOrigin } from '@/lib/security';
+import { PINCODE_REGEX, PINCODE_HINT } from '@/lib/pincode';
 const schema = z.object({
   items: z
     .array(z.object({ id: z.string().max(50), quantity: z.number().int().min(1).max(500) }))
@@ -10,7 +11,7 @@ const schema = z.object({
   name: z.string().trim().min(2).max(100),
   phone: z.string().regex(/^[6-9]\d{9}$/),
   address: z.string().trim().min(10).max(500),
-  pincode: z.string().regex(/^19000[1-9]$/),
+  pincode: z.string().trim().regex(PINCODE_REGEX, PINCODE_HINT),
   slot: z.enum(['Today, 4 PM – 7 PM', 'Tomorrow, 9 AM – 12 PM', 'Tomorrow, 4 PM – 7 PM']),
   payment: z.enum(['COD', 'UPI', 'Card', 'Netbanking']),
   coupon: z.string().max(30).default(''),
@@ -63,7 +64,8 @@ export async function POST(req: Request) {
       {
         error:
           e instanceof z.ZodError
-            ? 'Please check your contact, address and delivery details'
+            ? e.issues.find((issue) => issue.path[0] === 'pincode')?.message ||
+              'Please check your contact, address and delivery details'
             : e instanceof SyntaxError
               ? 'Invalid request'
               : e instanceof Error

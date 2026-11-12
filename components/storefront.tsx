@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { configureOfflineCatalogue } from '@/lib/offline';
+import { PINCODE_PATTERN, PINCODE_HINT } from '@/lib/pincode';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -919,7 +920,16 @@ export default function Storefront() {
                   <div className="form-row">
                     <label>
                       Pincode
-                      <input name="pincode" required pattern="19000[1-9]" defaultValue="190001" />
+                      <input
+                        name="pincode"
+                        required
+                        pattern={PINCODE_PATTERN}
+                        title={PINCODE_HINT}
+                        inputMode="numeric"
+                        autoComplete="postal-code"
+                        maxLength={6}
+                        defaultValue={location.match(/[1-9][0-9]{5}/)?.[0] || '190001'}
+                      />
                     </label>
                     <label>
                       Delivery slot
@@ -970,20 +980,32 @@ export default function Storefront() {
               <>
                 <MapPin size={30} />
                 <h2>Where should goodness arrive?</h2>
-                <p>We currently serve Srinagar pincodes 190001–190009.</p>
+                <p>
+                  Try any valid six-digit Indian pincode in this demo. Real delivery availability
+                  will be confirmed when the store goes live.
+                </p>
                 <form
                   className="form"
                   onSubmit={(e) => {
                     e.preventDefault();
                     const v = new FormData(e.currentTarget).get('pincode');
-                    setLocation(`Srinagar, ${v}`);
+                    setLocation(`PIN ${v}`);
                     setPanel(null);
                     setMessage('Delivery location updated');
                   }}
                 >
                   <label>
                     Pincode
-                    <input name="pincode" pattern="19000[1-9]" required placeholder="190001" />
+                    <input
+                      name="pincode"
+                      pattern={PINCODE_PATTERN}
+                      title={PINCODE_HINT}
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      maxLength={6}
+                      required
+                      placeholder="192210"
+                    />
                   </label>
                   <button className="primary">
                     Check & save location <ArrowRight size={16} />
@@ -997,6 +1019,9 @@ export default function Storefront() {
                 <h2>Welcome to your neighbourhood.</h2>
                 <p>Track your demo order or register your kirana to explore wholesale benefits.</p>
                 <div className="account-options">
+                  <button onClick={() => setPanel('location')}>
+                    <MapPin /> Delivery location <ChevronRight />
+                  </button>
                   <button onClick={() => setPanel('orders')}>
                     <Package />
                     My orders <ChevronRight />

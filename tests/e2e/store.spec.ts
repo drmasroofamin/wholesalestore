@@ -15,6 +15,7 @@ test('search, favourites, cart and demo checkout', async ({ page }) => {
   await page.getByLabel('Your name').fill('Test Customer');
   await page.getByLabel('Mobile number', { exact: true }).fill('9876543210');
   await page.getByLabel('Delivery address').fill('12 Test Street, Srinagar');
+  await page.getByLabel('Pincode', { exact: true }).fill('192210');
   await page.getByRole('button', { name: 'Place demo order' }).click();
   await expect(page.getByRole('heading', { name: 'Your demo order is placed!' })).toBeVisible();
   await expect(page.getByRole('dialog')).toContainText('₹688');
@@ -67,4 +68,23 @@ test('catalogue remains usable offline after service worker warmup', async ({ pa
   await page.getByRole('textbox', { name: 'Search products' }).fill('moong');
   await expect(page.locator('.product-card')).toHaveCount(1);
   await context.setOffline(false);
+});
+
+test('192210 can be selected as the delivery location without a browser format error', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delivery location' }).click();
+  await page.getByLabel('Pincode', { exact: true }).fill('192210');
+  await page.getByRole('button', { name: 'Check & save location' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page
+    .locator('.product-card')
+    .first()
+    .getByRole('button', { name: 'ADD', exact: true })
+    .click();
+  await page.getByRole('button', { name: /My cart/ }).click();
+  await page.getByRole('button', { name: 'Continue to checkout' }).click();
+  await expect(page.getByLabel('Pincode', { exact: true })).toHaveValue('192210');
 });

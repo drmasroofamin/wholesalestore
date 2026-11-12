@@ -92,7 +92,7 @@ The native Prisma migration CLI may require `binaries.prisma.sh`. This cloud env
 | `POST /api/payments/verify` | Live-disabled signature-verification boundary; never marks a payment paid |
 | `POST /api/payments/webhook` | Live-disabled signed event boundary; never acknowledges unpersisted events as processed |
 
-Checkout JSON: `{ items: [{id, quantity}], name, phone, address, pincode, slot, payment, coupon }`. Serviceable demo pincodes: 190001–190009. Use the slots displayed in checkout. COD demo limit: ₹25,000. Coupon: `WELCOME10` (10%, capped at ₹100). Tax is included in displayed B2C prices.
+Checkout JSON: `{ items: [{id, quantity}], name, phone, address, pincode, slot, payment, coupon }`. Demo checkout accepts any correctly formatted six-digit Indian pincode, including 192210. This validates format only and does not establish delivery coverage; live serviceability must use configured delivery zones. Use the slots displayed in checkout. COD demo limit: ₹25,000. Coupon: `WELCOME10` (10%, capped at ₹100). Tax is included in displayed B2C prices.
 
 ## Razorpay test/live integration checklist
 

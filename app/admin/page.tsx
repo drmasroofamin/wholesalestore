@@ -909,8 +909,8 @@ export default function Admin() {
                   <input defaultValue="Grain & Good" required />
                 </label>
                 <label>
-                  Serviceable pincodes
-                  <input defaultValue="190001 – 190009" readOnly />
+                  Demo delivery pincodes
+                  <input defaultValue="Any valid six-digit Indian pincode (demo only)" readOnly />
                 </label>
                 <label>
                   Free delivery above (₹)

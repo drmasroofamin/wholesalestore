@@ -75,7 +75,7 @@ test('checkout rejects duplicate lines, invalid pincodes and unconfigured online
     (await POST(request({ ...payload, items: [...payload.items, ...payload.items] }))).status,
     400,
   );
-  assert.equal((await POST(request({ ...payload, pincode: '110001' }))).status, 400);
+  assert.equal((await POST(request({ ...payload, pincode: '012345' }))).status, 400);
   assert.equal((await POST(request({ ...payload, payment: 'UPI' }))).status, 503);
   assert.equal((await POST(request(payload, 'https://untrusted.example'))).status, 403);
 });
@@ -106,4 +106,14 @@ test('provider validates gateway amounts and captured state', async () => {
       { orderId: 'order_123', amount: 10000 },
     ),
   );
+});
+
+test('demo checkout accepts 192210 and distinguishes invalid pincode formats', async () => {
+  assert.equal((await POST(request({ ...payload, pincode: '192210' }))).status, 201);
+  assert.equal((await POST(request({ ...payload, pincode: '110001' }))).status, 201);
+  for (const pincode of ['19221', '1922100', '000000', '19A210']) {
+    const response = await POST(request({ ...payload, pincode }));
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /six-digit Indian pincode/);
+  }
 });
