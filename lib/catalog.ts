@@ -15,13 +15,14 @@ export type Product = {
   gst: number;
 };
 export const categories = [
-  { name: 'All essentials', emoji: '✳', count: 8, image: '' },
+  { name: 'All essentials', emoji: '✳', count: 9, image: '' },
   { name: 'Rice', emoji: '🍚', count: 1, image: '/products/rice.webp' },
   { name: 'Atta & flour', emoji: '🌾', count: 1, image: '/products/atta.webp' },
   { name: 'Pulses & dals', emoji: '🫘', count: 3, image: '/products/dal.webp' },
   { name: 'Millets', emoji: '🌿', count: 1, image: '/products/millet.webp' },
   { name: 'Oils & ghee', emoji: '🫒', count: 1, image: '/products/oil.webp' },
   { name: 'Sugar & spices', emoji: '🧂', count: 1, image: '/products/sugar.webp' },
+  { name: 'Biscuits & snacks', emoji: '🍪', count: 1, image: '/products/biscuit.webp' },
 ];
 export const products: Product[] = [
   {
@@ -147,6 +148,21 @@ export const products: Product[] = [
     stock: 95,
     hsn: '0713',
     gst: 5,
+  },
+  {
+    id: 'biscuit',
+    name: 'Glucose Biscuit',
+    hindi: 'ग्लूकोज़ बिस्कुट',
+    category: 'Biscuits & snacks',
+    pack: '1 pack',
+    price: 500,
+    mrp: 500,
+    wholesale: 450,
+    image: '/products/biscuit.webp',
+    rating: '4.6',
+    stock: 100,
+    hsn: '1905',
+    gst: 18,
   },
 ];
 export const money = (paise: number) =>

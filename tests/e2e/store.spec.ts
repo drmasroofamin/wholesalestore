@@ -8,7 +8,7 @@ test('search, favourites, cart and demo checkout', async ({ page }) => {
   await page.getByRole('button', { name: 'Save Premium Basmati Rice', exact: true }).click();
   await page.getByRole('button', { name: 'ADD', exact: true }).click();
   await search.fill('');
-  await expect(page.locator('.product-card')).toHaveCount(8);
+  await expect(page.locator('.product-card')).toHaveCount(9);
   await page.getByRole('button', { name: /My cart/ }).click();
   await expect(page.getByRole('dialog')).toContainText('Premium Basmati Rice');
   await page.getByRole('button', { name: 'Continue to checkout' }).click();
@@ -23,6 +23,20 @@ test('search, favourites, cart and demo checkout', async ({ page }) => {
   await page.getByRole('button', { name: 'Account', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'My orders', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your demo order is placed!' })).toBeVisible();
+});
+test('glucose biscuit is listed at five rupees and can be added to the cart', async ({ page }) => {
+  await page.goto('/');
+  const search = page.getByRole('textbox', { name: 'Search products' });
+  await search.fill('Glucose');
+  const card = page.locator('.product-card');
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText('Glucose Biscuit');
+  await expect(card).toContainText('₹5');
+  await page.getByRole('button', { name: 'ADD', exact: true }).click();
+  await page.getByRole('button', { name: /My cart/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('Glucose Biscuit');
+  await expect(page.getByRole('dialog')).toContainText('₹44');
+  await expect(page.getByRole('dialog')).toContainText('₹39');
 });
 test('category filter, detail and responsive layout', async ({ page }) => {
   await page.goto('/');
@@ -61,7 +75,7 @@ test('catalogue remains usable offline after service worker warmup', async ({ pa
     await navigator.serviceWorker.ready;
   });
   await page.reload();
-  await expect(page.locator('.product-card')).toHaveCount(8);
+  await expect(page.locator('.product-card')).toHaveCount(9);
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByRole('heading', { name: /Everyday essentials/ })).toBeVisible();

@@ -467,7 +467,7 @@ h2 {
 }
 .categories {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   gap: 16px;
 }
 .category {
@@ -508,6 +508,9 @@ h2 {
 }
 .category:nth-child(7) .category-art {
   background: #eee9e0;
+}
+.category:nth-child(8) .category-art {
+  background: #f3eee4;
 }
 .category img {
   height: 100%;
@@ -634,6 +637,9 @@ h2 {
 }
 .product-image.chana {
   background: #f4eee1;
+}
+.product-image.biscuit {
+  background: #f3f1ea;
 }
 .product-tag {
   position: absolute;
@@ -1824,9 +1830,6 @@ footer {
   .category small {
     font-size: 7px;
     margin-top: 4px;
-  }
-  .categories > .category:last-child {
-    display: none;
   }
   .shop-section {
     padding-top: 32px;
