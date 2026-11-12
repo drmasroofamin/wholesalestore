@@ -4,11 +4,14 @@ const g = globalThis as unknown as { redis?: Redis };
 export function redis() {
   if (!process.env.REDIS_URL) throw new Error('Shared rate limiting is not configured');
   return (
-    g.redis ??
+    (g.redis?.status === 'end' ? undefined : g.redis) ??
     (g.redis = new Redis(process.env.REDIS_URL, {
       maxRetriesPerRequest: 1,
       connectTimeout: 2000,
       lazyConnect: true,
+      retryStrategy: (attempt) => (attempt <= 2 ? attempt * 100 : null),
+    }).on('error', () => {
+      /* Report sanitized status via readiness checks. */
     }))
   );
 }
@@ -49,4 +52,8 @@ export function sameOrigin(req: Request) {
   } catch {
     return false;
   }
+}
+
+export function closeRedis() {
+  g.redis?.disconnect();
 }

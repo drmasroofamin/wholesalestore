@@ -33,13 +33,15 @@ export function quote(
   items: { id: string; quantity: number }[],
   coupon = '',
   catalogue: Product[] = products,
+  options: { checkStock?: boolean } = {},
 ) {
   if (!items.length || items.length > 50) throw new Error('Add between 1 and 50 products');
   const lines = items.map((i) => {
     const p = catalogue.find((p) => p.id === i.id);
     if (!p) throw new Error('Unknown product');
     priceFor(i.quantity, false, p.price, p.wholesale);
-    if (i.quantity > p.stock) throw new Error(`${p.name} has insufficient stock`);
+    if (options.checkStock !== false && i.quantity > p.stock)
+      throw new Error(`${p.name} has insufficient stock`);
     return { ...i, price: p.price, total: p.price * i.quantity, gst: p.gst };
   });
   const subtotal = lines.reduce((s, l) => s + l.total, 0);

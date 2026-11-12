@@ -137,3 +137,15 @@ Open `/reset.html` on the exact localhost address/port that failed, wait for the
 The optimized WebP photos and their licences are preserved in [public/products/CREDITS.md](public/products/CREDITS.md). They illustrate the food, not a guaranteed branded packet. Once products exist, seeding does not change their photos, names, prices or stock.
 
 [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) describes the demo workflow at the photo-update commit. Use [LIVE_LAUNCH.md](LIVE_LAUNCH.md) for the current database-backed workflow and Vercel setup.
+
+## Diagnose a local store that cannot refresh
+
+Run `npm run doctor` from the project folder. It reads the same environment files as Next development (including `.env.local`) and reports only setting-presence flags and sanitized configuration/PostgreSQL/Redis check codes, never credential values. A failing check exits with code 1. `/api/health` now also reports separate service checks in live mode. Keep checkout paused until all checks pass; do not disable TLS verification to resolve a connection failure.
+
+- `MISSING_SETTINGS` / `NOT_CONFIGURED`: enter the missing settings in your private local environment file.
+- `INVALID_URL_PROTOCOL` for Redis: use a `redis://` or `rediss://` connection URL, not an HTTPS REST endpoint.
+- `ECONNREFUSED`: the selected local service/port is not accepting connections; use your running local service or the correct hosted connection.
+- `28P01` / `AUTHENTICATION_FAILED`: verify credentials securely with the provider.
+- `ENOTFOUND`: verify the connection hostname and network access.
+
+Restart `npm run dev` after changing local settings. A failed store refresh never means the order is free: unavailable totals are shown explicitly and submission remains disabled. Saved cart items are retained for customer review rather than silently removed when a product is missing from a refreshed catalogue.

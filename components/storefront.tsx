@@ -104,13 +104,8 @@ export default function Storefront({
         try {
           localStorage.setItem('gg-public-catalogue', JSON.stringify(data.products));
         } catch {}
-        setCart((previous) =>
-          Object.fromEntries(
-            Object.entries(previous).filter(([id]) =>
-              data.products.some((product: Product) => product.id === id),
-            ),
-          ),
-        );
+        // Keep unavailable items in the saved cart until the customer removes them.
+        // An empty or temporarily changed catalogue must not silently erase a cart.
       } catch (error) {
         if (signal?.aborted) return;
         setStoreError(
@@ -258,6 +253,7 @@ export default function Storefront({
         Object.entries(cart).map(([id, quantity]) => ({ id, quantity })),
         applied,
         products,
+        { checkStock: false },
       );
       const zone = store?.zones.find(
         (z) => z.pincode === (checkoutPin || location.match(/[1-9][0-9]{5}/)?.[0]),
@@ -271,6 +267,18 @@ export default function Storefront({
       return null;
     }
   }, [cart, applied, products, store, checkoutPin, location, live]);
+  const cartProblems = Object.entries(cart).flatMap(([id, quantity]) => {
+    const product = products.find((p) => p.id === id);
+    if (!product) return [{ id, message: 'An item is missing from the current catalogue.' }];
+    if (quantity > product.stock)
+      return [
+        {
+          id,
+          message: `${product.name}: only ${product.stock} pack(s) are currently available. Reduce the quantity or remove the item.`,
+        },
+      ];
+    return [];
+  });
   const visible = useMemo(
     () =>
       products
@@ -953,7 +961,7 @@ export default function Storefront({
       {count > 0 && (
         <button className="mobile-cart" onClick={() => setPanel('cart')}>
           <ShoppingBag size={19} /> {count} items{' '}
-          <strong>{money(summary?.total || 0)} · View cart →</strong>
+          <strong>{summary ? money(summary.total) : 'Total unavailable'} · View cart →</strong>
         </button>
       )}
       {message && (
@@ -1038,6 +1046,36 @@ export default function Storefront({
                           </div>
                         ))}
                     </div>
+                    {Object.entries(cart)
+                      .filter(([id]) => !products.some((product) => product.id === id))
+                      .map(([id, quantity]) => (
+                        <div className="cart-item" key={id}>
+                          <div>
+                            <strong>Product unavailable in current catalogue</strong>
+                            <small>{quantity} pack(s) · saved in your cart</small>
+                          </div>
+                          <button
+                            type="button"
+                            className="text-link"
+                            onClick={() =>
+                              setCart((previous) => {
+                                const next = { ...previous };
+                                delete next[id];
+                                return next;
+                              })
+                            }
+                          >
+                            Remove item
+                          </button>
+                        </div>
+                      ))}
+                    {cartProblems.length > 0 && (
+                      <div className="demo-notice">
+                        {cartProblems.map((problem) => (
+                          <p key={problem.id}>{problem.message}</p>
+                        ))}
+                      </div>
+                    )}
                     {!live && (
                       <div className="coupon">
                         <input
@@ -1203,7 +1241,8 @@ export default function Storefront({
                         <p className="muted">Checking available delivery times…</p>
                       ) : storeError ? (
                         <p className="demo-notice">
-                          Unable to refresh delivery slots. Try again before ordering.
+                          The store could not load its current delivery information. Your cart is
+                          saved. Please retry or contact the store.
                         </p>
                       ) : !store?.slots.length ? (
                         <p className="demo-notice">
@@ -1234,6 +1273,8 @@ export default function Storefront({
                     </div>
                   )}
                   {live &&
+                    store &&
+                    !storeError &&
                     checkoutPin.length === 6 &&
                     !store?.zones.some((zone) => zone.pincode === checkoutPin) && (
                       <p className="demo-notice" role="status">
@@ -1272,14 +1313,32 @@ export default function Storefront({
                       </label>
                     ))}
                   </fieldset>
+                  {cartProblems.length > 0 && (
+                    <div className="demo-notice" role="alert">
+                      {cartProblems.map((problem) => (
+                        <p key={problem.id}>{problem.message}</p>
+                      ))}
+                      <button type="button" className="text-link" onClick={() => setPanel('cart')}>
+                        Review cart
+                      </button>
+                    </div>
+                  )}
                   <div className="checkout-total">
-                    Total to pay <strong>{money(summary?.total || 0)}</strong>
+                    {storeError ? 'Estimated total' : 'Total to pay'}{' '}
+                    <strong>{summary ? money(summary.total) : 'Total unavailable'}</strong>
                   </div>
+                  {!summary && (
+                    <p className="demo-notice" role="status">
+                      We could not calculate the total. Your cart is saved. Refresh the store or
+                      review unavailable items before ordering.
+                    </p>
+                  )}
                   <button
                     disabled={
                       busy ||
                       !count ||
                       !summary ||
+                      cartProblems.length > 0 ||
                       (live &&
                         (!store ||
                           !store.acceptingOrders ||
