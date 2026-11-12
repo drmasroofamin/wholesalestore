@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 const g = globalThis as unknown as { redis?: Redis };
 export function redis() {
   if (!process.env.REDIS_URL) throw new Error('Shared rate limiting is not configured');
@@ -17,11 +17,22 @@ export function validSignature(body: string, signature: string, secret: string) 
   const expected = createHmac('sha256', secret).update(body).digest();
   return timingSafeEqual(expected, Buffer.from(signature, 'hex'));
 }
+export function cacheKey(key: string) {
+  return (
+    'grain-good:' +
+    createHash('sha256')
+      .update(process.env.APP_ORIGIN || 'local-demo')
+      .digest('hex')
+      .slice(0, 16) +
+    ':' +
+    key
+  );
+}
 export async function rateLimit(key: string, limit = 30) {
   const result = (await redis().eval(
     "local n=redis.call('INCR',KEYS[1]);if n==1 then redis.call('EXPIRE',KEYS[1],60) end;return n",
     1,
-    `rate:${key}`,
+    cacheKey(`rate:${key}`),
   )) as number;
   return result <= limit;
 }

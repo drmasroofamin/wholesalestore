@@ -153,5 +153,6 @@ export const money = (paise: number) =>
   new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: paise % 100 ? 2 : 0,
+    maximumFractionDigits: 2,
   }).format(paise / 100);

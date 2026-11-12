@@ -3,6 +3,27 @@ on: [push, pull_request]
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: grain
+          POSTGRES_PASSWORD: grain_test_only
+          POSTGRES_DB: grain_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U grain" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://grain:grain_test_only@localhost:5432/grain_test
+      TEST_DATABASE_URL: postgresql://grain:grain_test_only@localhost:5432/grain_test
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -11,6 +32,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run db:generate
+      - run: npm run db:migrate
       - run: npm test
+      - run: npm run test:live
       - run: npm run build
       - run: npm run typecheck

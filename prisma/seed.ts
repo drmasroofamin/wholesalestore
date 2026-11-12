@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { database } from '../lib/db';
 import { products } from '../lib/catalog';
-const db = new PrismaClient();
+const db = database();
 async function main() {
   for (const p of products) {
     const c = await db.category.upsert({
@@ -24,7 +24,7 @@ async function main() {
             pack: p.pack,
             price: p.price,
             mrp: p.mrp,
-            stock: p.stock,
+            stock: process.env.SEED_SAMPLE_STOCK === 'true' ? p.stock : 0,
             tiers: {
               create: [
                 { minimum: 10, price: p.wholesale },
@@ -37,6 +37,8 @@ async function main() {
       update: {},
     });
   }
-  console.log('Seeded 8 products without overwriting existing prices or stock.');
+  console.log(
+    'Seeded 8 products without overwriting existing prices or stock. New products start at zero stock unless SEED_SAMPLE_STOCK=true.',
+  );
 }
 main().finally(() => db.$disconnect());

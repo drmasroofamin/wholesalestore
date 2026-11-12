@@ -1,4 +1,4 @@
-import { products } from './catalog';
+import { products, Product } from './catalog';
 export function priceFor(quantity: number, retailer: boolean, price: number, wholesale: number) {
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 500)
     throw new Error('Invalid quantity');
@@ -22,14 +22,18 @@ export function splitTax(inclusive: number, rate: number, interstate = false) {
     igst: interstate ? total : 0,
   };
 }
-export function quote(items: { id: string; quantity: number }[], coupon = '') {
+export function quote(
+  items: { id: string; quantity: number }[],
+  coupon = '',
+  catalogue: Product[] = products,
+) {
   if (!items.length || items.length > 50) throw new Error('Add between 1 and 50 products');
   const lines = items.map((i) => {
-    const p = products.find((p) => p.id === i.id);
+    const p = catalogue.find((p) => p.id === i.id);
     if (!p) throw new Error('Unknown product');
     priceFor(i.quantity, false, p.price, p.wholesale);
     if (i.quantity > p.stock) throw new Error(`${p.name} has insufficient stock`);
-    return { ...i, price: p.price, total: p.price * i.quantity };
+    return { ...i, price: p.price, total: p.price * i.quantity, gst: p.gst };
   });
   const subtotal = lines.reduce((s, l) => s + l.total, 0);
   const discount =
@@ -41,6 +45,6 @@ export function quote(items: { id: string; quantity: number }[], coupon = '') {
     discount,
     delivery,
     total: subtotal - discount + delivery,
-    tax: lines.reduce((s, l) => s + splitTax(l.total, 5).tax, 0),
+    tax: lines.reduce((s, l) => s + splitTax(l.total, l.gst).tax, 0),
   };
 }

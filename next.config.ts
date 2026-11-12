@@ -4,6 +4,7 @@ const config: NextConfig = {
   // A production build must not overwrite chunks used by a running dev server.
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   poweredByHeader: false,
+  outputFileTracingIncludes: { '/api/**/*': ['./node_modules/.prisma/client/**/*'] },
   async headers() {
     return [
       {

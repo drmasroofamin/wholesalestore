@@ -4,18 +4,21 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
-    "build": "next build",
+    "build": "npm run db:generate && next build",
     "start": "next start --hostname 0.0.0.0",
     "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "node scripts/generate-client.cjs",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx prisma/seed.ts",
     "db:validate": "node scripts/check-schema.cjs",
-    "db:migrate": "prisma migrate deploy",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run test:e2e",
-    "dev:clean": "node scripts/clean-dev.cjs && npm run dev"
+    "dev:clean": "node scripts/clean-dev.cjs && npm run dev",
+    "admin:password": "node scripts/admin-password.cjs",
+    "test:live": "node --env-file-if-exists=.env --import tsx --test tests/live/*.test.ts",
+    "test:e2e:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",
@@ -24,6 +27,7 @@
     "ioredis": "^5.4.0",
     "lucide-react": "^0.468.0",
     "next": "^15.5.9",
+    "pg": "^8.23.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^3.24.0"
@@ -33,6 +37,7 @@
     "@playwright/test": "^1.65.0",
     "@prisma/internals": "6.19.0",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "prettier": "^3.10.0",

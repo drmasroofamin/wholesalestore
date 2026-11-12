@@ -8,7 +8,7 @@ export function database() {
     (globalDb.prisma = new PrismaClient({
       adapter: new PrismaPg({
         connectionString: process.env.DATABASE_URL,
-        max: 10,
+        max: Number(process.env.DATABASE_POOL_MAX || (process.env.VERCEL ? '2' : '10')),
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
       }),

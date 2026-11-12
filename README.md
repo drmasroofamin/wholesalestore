@@ -1,149 +1,133 @@
 # Grain & Good
 
-Mobile-first grain and grocery storefront with a responsive merchant workspace. Built with Next.js App Router, React, TypeScript, locally hosted fonts and illustrations, and a PostgreSQL/Prisma data foundation.
+A mobile-first grain-store app with a responsive storefront, guest checkout, protected merchant workspace, PostgreSQL persistence and Razorpay integration. Next.js 15 App Router, React 19, TypeScript, Prisma's JavaScript query compiler, PostgreSQL and Redis.
 
-**Current release is a working demonstration, not a production commerce launch.** No money is collected, no delivery is scheduled, and admin changes affect sample data only. Do not enter real KYC or sensitive customer information.
+**For Vercel setup and actual-order verification, read [LIVE_LAUNCH.md](LIVE_LAUNCH.md).** The default is still a safe demonstration. This repository is not evidence that a public deployment, merchant account or live payment has been verified.
 
-## Run
+## Local demo
 
-Requires Node.js 24 and npm 11. Use the existing checkout; a task already has an isolated workspace and does not need a new Git worktree.
+Use Node.js 24 and the existing checkout. Cloud tasks already have isolated workspaces; do not create a Git worktree unless explicitly requested.
 
 ```sh
-cd /workspace/wholesalestore
 npm ci
 npm run db:generate
 npm run dev
 ```
 
-Storefront: `/`. Merchant demonstration: `/admin`. Policies: `/policies`.
+Storefront: `/`. Admin demo: `/admin`. Policies: `/policies`. The demo needs no external credentials and does not save server-side orders or collect payments.
 
-The demo needs no credentials, database or Redis process. Copy `.env.example` to `.env` only if you need to configure optional infrastructure. Never commit credentials.
+## Database-backed operation
 
-For a production build, run `npm run build` and `npm start`. Docker uses the standalone Next.js server and a non-root runtime user.
+Copy `.env.example` to your private `.env` only if the file does not exist; otherwise edit the existing file. Configure the database/Redis, merchant details, admin password hash and signing secrets. Never commit credentials.
 
-## What works
+```sh
+docker compose up -d db redis
+npm run db:migrate
+npm run db:seed
+npm run admin:password
+```
 
-- Responsive storefront, local product illustrations, locally hosted fonts, English/Hindi product search, category and pack filters, sorting, product detail dialogs.
-- Favourites and cart persisted on the device; quantities bounded by sample stock; free-delivery threshold, coupon calculation, GST-inclusive totals.
-- One-page validated COD **demo** checkout. Trusted server catalogue determines prices. Duplicate checkout keys produce the same demo receipt ID; there are no persistent side effects.
-- Latest demo receipt survives reload; downloadable text receipt is explicitly not a tax invoice.
-- Retailer demo registration saved on the device, without granting wholesale or credit approval.
-- Admin sample dashboard, charts, searchable/filterable orders, bulk confirmation, status changes, editable sample price/stock, retailer approval, delivery statuses, payment reconciliation views and CSV exports. All admin changes are session-only.
-- Offline cached storefront/assets after service-worker activation and a subsequent online visit. API requests, admin data and payment paths are never cached. Offline checkout is not supported.
-- Install manifest with 192px/512px icons, secure response headers, request validation, origin checks and bounded item quantities.
-- Pricing tiers, integer-paise GST split, credit eligibility and payment-signature rules with tests.
-- Swappable server-side payment interface and Razorpay HTTP adapter with timeout, signature, amount, currency and captured-status validation. HTTP routes deliberately refuse live payment operations until durable reconciliation is implemented.
-- Validated 29-model Prisma schema, initial PostgreSQL SQL migration, idempotent product seed, indexes and stock/money constraints.
+The compose credentials are local development values only. The seed preserves existing prices/stock and creates new starter SKUs with zero physical stock. Admin must review the catalogue and enter real stock before opening orders. No delivery zone is silently enabled.
 
-## Scope still required before live launch
+Set `DEMO_MODE=false` to use the real database-backed workflow. Keep `ACCEPT_ORDERS=false` during configuration; enable it explicitly for controlled verification and reviewed launch. `/api/health` reports operational readiness without exposing credentials. `/admin` redirects to the authenticated merchant workspace in live mode.
 
-| Area | Remaining work |
-| --- | --- |
-| Authentication | Provider-backed OTP, OTP rate limits, expiring sessions/refresh tokens, logout/revocation, RBAC and authorization of every live endpoint |
-| Orders | Connect database-backed carts/orders, transactional stock reservation/release, authoritative slot capacity, price recalculation and reservation expiry worker |
-| Payments | Connect Razorpay order creation to durable internal orders, launch hosted checkout, reconcile signed webhook events transactionally with unique event IDs, retries, settlement/refund workers |
-| Admin | Replace public sample workspace with authenticated, audited APIs and persistent CRUD; implement real customer, KYC and staff controls |
-| B2B | Persist approvals, verified GST/PAN, per-retailer prices, enforce credit/overdue rules atomically, quick/CSV orders, standing orders |
-| Fulfilment | Delivery partner authorization, assignment, real status updates, COD reconciliation and capacity rules |
-| Documents | Verified business identifiers, GST invoice/challan PDF generation, storage and signed document URLs |
-| Remaining services | Wallet ledger/refunds, notifications, reviews, recurring orders, live reports, returns and uploads |
-| Language/accessibility | Hindi content is partial; full translation dictionaries and an accessibility audit are still required |
-| Legal | Replace policy drafts and sample support number with verified merchant details, FSSAI/GST information and actual refund/service terms |
+The first live workflow includes:
 
-Setting `DEMO_MODE=false` **fails closed** with HTTP 503. Adding gateway keys alone does not enable live commerce. The application does not claim complete implementation of the uploaded four-phase specification.
+- Persistent COD and Razorpay orders with server-authoritative prices, GST-inclusive integer-paise totals and zone-specific delivery fees.
+- Transactional stock reservation, delivery-slot capacity/cut-off checks, cross-replica idempotency and rejection of changed payloads under the same key.
+- Guest checkout and private, expiring receipt tokens; receipt APIs do not expose customer phone/address. Phone numbers are not yet OTP-verified; confirm guest orders before fulfilment.
+- Password-hash-based merchant sign-in, signed HttpOnly SameSite cookies, rate limiting, protected order/inventory/zone endpoints and audit records.
+- Persistent admin status changes, explicit COD collection confirmation, cancellation/expiry release, stock editing and delivery-zone/slot controls.
+- Server-created Razorpay orders, signed browser verification, amount/currency checks, idempotent signed webhooks and monotonic captured/failed/refunded state handling.
+- Test-mode payments labelled and blocked from fulfilment. Late capture after cancellation flagged for merchant refund review. Refunds are initiated in the Razorpay dashboard and reconciled by signed webhooks.
+- 15-minute unpaid online reservations, an authenticated expiry endpoint and a throttled catalogue-traffic fallback sweep.
+- Local product artwork/fonts, separately loaded admin routes, bounded PostgreSQL pools and a public catalogue cache of 15 seconds. Private/admin/payment APIs are not cached by the offline worker.
+
+## Commands
+
+```sh
+npm test
+npm run test:live
+npm run db:validate
+npm run build
+npm run typecheck
+npm start
+```
+
+`test:live` requires a dedicated `TEST_DATABASE_URL` whose database name contains `test`, initialized with `db:migrate`, plus Redis. It deliberately clears test tables and refuses a database without `test` in its name. Never point integration tests at customer data.
+
+Browser tests need a running server and Chromium:
+
+```sh
+npm run test:e2e
+npm run test:e2e:live
+```
+
+Demo browser tests use `TEST_BASE_URL` (default local port 3000). The live browser suite needs `LIVE_TEST_BASE_URL` and `TEST_ADMIN_PASSWORD_FILE` for an isolated verification deployment. It places and then cancels verification COD orders. Remote execution requires explicit `ALLOW_STAGING_E2E=true`; do not run it on a customer production store. Set `CHROMIUM_PATH` when your installed Chromium differs from `/usr/bin/chromium`.
+
+CI runs migration, unit/database tests, live PostgreSQL/Redis integration tests, production build and type checks. Client generation uses the pinned Prisma internals WASM parser and JS query compiler; it does not disable signature/checksum verification. SQL migrations use `pg`, an advisory lock and a checksum ledger (`_GrainMigration`), so native migration-engine downloads are not needed. Do not mix migration ledgers or edit applied SQL files.
 
 ## Structure
 
 ```text
-app/                   Next.js routes, API handlers, admin and policies
-components/            Interactive storefront
-lib/catalog.ts         Typed sample catalogue, INR formatting
-lib/rules.ts           Pure pricing, tax, credit and quote rules
-lib/payments.ts        Provider boundary and Razorpay adapter
-lib/security.ts        HMAC verification, origin check, Redis rate-limit utility
-lib/db.ts              Singleton Prisma client + capped PostgreSQL pool
-prisma/                29-model schema, initial migration, safe upsert seed
-public/                Local illustrations, font-independent icons, PWA worker
-scripts/               Client generation, schema checks and staging load scenario
-tests/                 Unit/API tests, SQL migration smoke test, browser tests
+app/                        Storefront, policies, protected admin and API routes
+components/                 Storefront, demo admin, login and live merchant UI
+lib/live-orders.ts          Transactional order/reservation/status services
+lib/live-payments.ts        Gateway order association and payment/refund reconciliation
+lib/admin-auth.ts           Password verification, signed sessions and receipt tokens
+lib/live-catalog.ts         Public database-backed catalogue
+lib/security.ts             HMAC, origin checks and namespaced Redis rate limits
+lib/payments.ts             Swappable Razorpay HTTP adapter
+prisma/                     29-model schema, reviewed SQL migrations and safe seed
+scripts/                    Migrations, password setup, client generation and load scenario
+tests/                      Unit/API/schema tests and demo browser coverage
+tests/live/                 Actual PostgreSQL/Redis integration coverage
+tests/live-browser/         Customer-to-admin saved COD order verification
+public/                     Local illustrations, icons, recovery page and offline worker
 ```
 
-## Database and infrastructure
+## API overview
 
-```sh
-docker compose up -d db redis
-npm run db:generate
-npm run db:migrate
-npm run db:seed
-```
-
-The compose database password is for local development only. Production must use managed credentials, TLS, backups, restore testing and private database/Redis access. `db:push` is available for disposable development databases; use reviewed migrations for real data.
-
-Client generation uses Prisma 6.19's packaged WASM parser and JavaScript query compiler with `@prisma/adapter-pg`, avoiding native query-engine downloads. `@prisma/internals` is pinned because its generator API is internal. Upgrade it together with Prisma and rerun all checks. Standard `prisma generate` is an alternative on networks that allow Prisma's engine distribution domain.
-
-The native Prisma migration CLI may require `binaries.prisma.sh`. This cloud environment currently blocks that domain. Keep checksum/TLS verification enabled; add the hostname to approved environment network settings for native migration commands. The SQL migration is tested against PGlite's embedded PostgreSQL engine; external PostgreSQL connectivity and Docker deployment are not validated by that test.
-
-## APIs
-
-| Method/path | Behaviour |
+| Endpoint | Behaviour |
 | --- | --- |
-| `GET /api/catalog` | Static sample catalogue; CDN cache 300s, stale-while-revalidate 3600s |
-| `POST /api/orders` | Validated demo COD receipt. `Idempotency-Key` UUID required; no PII persisted |
-| `POST /api/payments/verify` | Live-disabled signature-verification boundary; never marks a payment paid |
-| `POST /api/payments/webhook` | Live-disabled signed event boundary; never acknowledges unpersisted events as processed |
+| `GET /api/store` | Public live config, catalogue, active zones and available slots |
+| `GET /api/catalog` | Public catalogue, briefly CDN-cacheable |
+| `GET /api/health` | Readiness and whether new orders are enabled |
+| `POST /api/orders` | Demo receipt or persistent live checkout, depending on server mode |
+| `GET /api/orders/:id` | Private customer status/receipt; signed Bearer receipt token required |
+| `POST /api/payments/verify` | Signed gateway verification tied to the private receipt and expected amount |
+| `POST /api/payments/webhook` | Raw-body HMAC-verified captured, failed and refund reconciliation |
+| `POST /api/admin/login`, `/logout` | Merchant session creation/removal |
+| `GET /api/admin/orders` | Protected paginated/searchable saved orders |
+| `PATCH /api/admin/orders/:id` | Protected, audited status transitions/COD collection |
+| `GET/PATCH /api/admin/catalog` | Protected stock and price management |
+| `GET/POST /api/admin/zones` | Protected explicit pincode/fee rules |
+| `POST /api/admin/slots` | Protected upcoming slot generation |
+| `GET /api/internal/expire` | Scheduler-only reservation expiry; secret Authorization header required |
 
-Checkout JSON: `{ items: [{id, quantity}], name, phone, address, pincode, slot, payment, coupon }`. Demo checkout accepts any correctly formatted six-digit Indian pincode, including 192210. This validates format only and does not establish delivery coverage; live serviceability must use configured delivery zones. Use the slots displayed in checkout. COD demo limit: ₹25,000. Coupon: `WELCOME10` (10%, capped at ₹100). Tax is included in displayed B2C prices.
+Live checkout body: `{items:[{id,quantity}],name,phone,address,pincode,slot,payment,coupon,expectedTotal}`. `Idempotency-Key` must be a UUID. `slot` is an actual available slot ID from `/api/store`, not a free-form date label. `expectedTotal` must match the server-authoritative total. Keep the same key/payload for network retries. A changed cart/contact/slot requires a new key; cancelled reservations cannot be reused. The storefront handles this automatically.
 
-## Razorpay test/live integration checklist
+## Deployment and capacity
 
-Set `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` securely on the server. The adapter only sends requests to `api.razorpay.com`; authorize this destination for outbound requests before integration testing. Never expose the secret or webhook key in browser bundles.
+Vercel configuration is included; run `npm run build`. Production runtime settings are server-only. Configure managed PostgreSQL/Redis and run reviewed migrations before enabling actual orders. The Dockerfile uses Next's standalone output and a non-root runtime user. Do not use local compose passwords in production.
 
-Before enabling the endpoints, persist an internal order and expected INR paise total, create and store its gateway order ID, then invoke hosted checkout. Verify checkout HMAC with the stored gateway order ID and fetch the payment to match amount, currency and captured status. For `payment.captured`, `payment.failed` and `refund.processed`, validate HMAC on the raw body and commit a unique event ID plus state transition in a database transaction. Only acknowledge events after durable commit. Reconcile timeouts using gateway lookups; do not blindly repeat payment/refund operations. Store no card details. Build and test stock reservation expiry/release, partial refunds and amount mismatch handling before taking real payments.
+HTML reads the server's current mode at request time; no production database call is needed to render the initial shell. Static assets are CDN-friendly and public catalogue data has a short shared cache. Admin and private receipts are always dynamic and uncached. Set a bounded connection pool (`DATABASE_POOL_MAX`, default 2 on Vercel), use the managed provider's pooler, and account for total connections across replicas.
 
-## Capacity target: 10,000 concurrent clients
+`scripts/load-test.js` supplies a catalogue-only staging scenario ramping to 10,000 virtual clients with think time. It has **not** demonstrated full-system 10,000-client capacity. Authenticated checkout/stock/credit/webhook traffic needs separate load scenarios and measured infrastructure sizing. Do not load-test a real payment provider by generating live charges.
 
-The storefront is statically rendered and CDN-cacheable. Its initial JavaScript is approximately 115 kB compressed by Next's build report, with admin loaded as a separate route. Images and fonts are local; catalogue filtering/cart editing make no server requests. The catalogue API is also statically generated with CDN cache headers. A Node replica has no per-client session memory in this demonstration.
+## Remaining scope
 
-This reduces catalogue traffic costs, but **10,000-client capacity has not been proven**. Concurrent sessions are not the same as 10,000 checkout requests/second. Real capacity depends on browsing/checkout ratios, edge hit rate, database locks, gateway latency and deployment size.
+This first live workflow is not the complete four-phase wholesale platform: OTP customer accounts, multi-role staff, full product/variant CRUD, retailer KYC/custom pricing/credit, wallets, standing orders, notifications, driver assignment, tax-invoice PDFs and automated returns still need implementation/integration. Hindi content is partial and an accessibility audit remains necessary. Merchant identity, policies, real stock/tax values, live gateway activation, backups, monitoring and staging verification remain launch prerequisites.
 
-Production design should put the static catalogue/assets behind a CDN, use autoscaled stateless API replicas, PgBouncer or a managed PostgreSQL pool, primary/replica database separation where appropriate, shared Redis rate limits/session storage, and queued notification/refund/invoice work. Bound total database connections across replicas rather than giving each replica an unbounded pool. Never use in-memory counters for shared inventory, credit, gateway event IDs or production sessions.
+## Recovering local development
 
-Checkout must reserve stock with a conditional atomic update (`stock - reserved >= requested`), inside the same transaction as the order/idempotency record; a lock/transaction must also enforce retailer credit and delivery capacity. Webhooks need unique provider event IDs and monotonic state transitions. Add observability for p95/p99 latency, cache hit rate, event lag, lock waits, stock mismatches and payment reconciliation failures.
+Stop the running dev server before starting another process for the same checkout. Production output uses `.next`; development uses `.next-dev` so a production build cannot overwrite development chunks. Offline caching is disabled in development.
 
-`scripts/load-test.js` provides a **catalogue-only** k6 staging scenario ramping to 10,000 virtual clients with think time. It has not been run against 10,000 clients here. Run it against infrastructure you own using `BASE_URL=... k6 run scripts/load-test.js`; add separate authenticated checkout, concurrent inventory, credit and webhook scenarios before making a full-system capacity claim. Target p95 catalogue latency under 500 ms and less than 1% request failures, then size infrastructure from measured results.
-
-## Validation
-
-```sh
-npm test                 # pricing/tax/credit/HMAC/API + SQL migration smoke test
-npm run db:validate      # Prisma WASM datamodel validation
-npm run db:generate      # generated client using JS query compiler
-npm run build
-npm run typecheck
-# Start the app separately before browser tests:
-npm run test:e2e
-```
-
-Browser tests use Chromium at `/usr/bin/chromium`; set `CHROMIUM_PATH` if installed elsewhere, and `TEST_BASE_URL` if the app uses a different origin/port. Tests cover desktop/mobile search, filtering, favourites, checkout, receipt persistence, layout overflow and admin status edits. CI installs dependencies, generates the client, runs unit/database tests, builds and typechecks. Browser testing additionally needs Chromium installed.
-
-### Validation recorded in this workspace
-
-- Production build and TypeScript checks passed.
-- 10 unit/API/database tests passed (including SQL migration and inventory constraints).
-- 8 Playwright tests passed across desktop and mobile, including offline catalogue reload.
-- Local catalogue smoke: 100 requests at concurrency 25, zero failures, observed p95 131 ms. This shared-machine result is not a production capacity benchmark.
-- Native PostgreSQL migration CLI, Docker deployment, real SMS/payment services, new-environment restoration and the 10,000-client staging scenario were not executed.
-
-### Development runtime cache errors
-
-Development uses `.next-dev` while production builds use `.next`, so running a build cannot overwrite development chunks. Offline caching is enabled only in production; development removes this app's older service-worker registrations and caches without clearing carts or favourites.
-
-If an older checkout shows `Cannot read properties of undefined (reading 'call')`, stop running Next.js processes, pull the update and reinstall with `npm ci`. Remove generated build caches with this cross-platform command, then restart with `npm run dev`:
+If a stale client bundle fails before React starts:
 
 ```sh
-node -e "for (const p of ['.next', '.next-dev']) require('node:fs').rmSync(p, { recursive: true, force: true })"
+git pull origin main
+npm run dev:clean
 ```
 
-If the page crashes before it can remove an old worker, open the browser developer tools → Application → Service Workers → Unregister for this local site, then hard-refresh. Do not delete `app/page.tsx`; it is the rendering boundary, not proof that the component import is incorrect.
-
-If the error occurs before the storefront mounts, its automatic cache cleanup cannot run. Open `/reset.html` on the **same localhost address and port** as the failing app, wait for confirmation, then use “Return to the store.” This standalone recovery page needs no React or Next.js JavaScript, removes only this app's service workers/offline caches and keeps saved carts/favourites. For a server-side stale development build, stop the server and use `npm run dev:clean` to regenerate `.next-dev`.
+Open `/reset.html` on the exact localhost address/port that failed, wait for the cleanup confirmation, then choose **Return to the store**. This standalone page works without React, removes only this app's service workers/offline caches and keeps your cart/favourites. If needed, unregister the old service worker in browser developer tools → Application → Service Workers. Copy commands without the terminal prompt or commas.

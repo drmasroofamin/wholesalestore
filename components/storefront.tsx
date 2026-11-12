@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { configureOfflineCatalogue } from '@/lib/offline';
 import { PINCODE_PATTERN, PINCODE_HINT } from '@/lib/pincode';
+import { loadRazorpay } from '@/lib/razorpay-browser';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -32,10 +33,74 @@ import {
   Phone,
   Download,
 } from 'lucide-react';
-import { categories, money, products, Product } from '@/lib/catalog';
+import { categories, money, products as demoProducts, Product } from '@/lib/catalog';
 import { quote } from '@/lib/rules';
 type Cart = Record<string, number>;
-export default function Storefront() {
+type StoreConfig = {
+  live: boolean;
+  name: string;
+  phone: string;
+  district: string;
+  onlinePayments: boolean;
+  acceptingOrders: boolean;
+  paymentTestMode: boolean;
+  products: Product[];
+  zones: { pincode: string; fee: number; freeAbove: number; codLimit: number }[];
+  slots: { id: string; label: string }[];
+};
+export default function Storefront({ live = false }: { live?: boolean }) {
+  const [products, setProducts] = useState<Product[]>(live ? [] : demoProducts);
+  const [store, setStore] = useState<StoreConfig | null>(null),
+    [storeError, setStoreError] = useState(''),
+    [checkoutPin, setCheckoutPin] = useState('');
+  useEffect(() => {
+    if (!live) return;
+    let cancelled = false;
+    fetch('/api/store')
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Store temporarily unavailable');
+        if (!data.live) throw new Error('Store mode changed. Please refresh.');
+        if (!cancelled) {
+          setStore(data);
+          setProducts(data.products);
+          try {
+            localStorage.setItem('gg-public-catalogue', JSON.stringify(data.products));
+          } catch {}
+          setCart((previous) =>
+            Object.fromEntries(
+              Object.entries(previous).filter(([id]) =>
+                data.products.some((product: Product) => product.id === id),
+              ),
+            ),
+          );
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setStoreError(error.message + ' Checkout is unavailable until the store reconnects.');
+          try {
+            const cached = JSON.parse(localStorage.getItem('gg-public-catalogue') || '[]');
+            if (
+              Array.isArray(cached) &&
+              cached.every(
+                (p) =>
+                  typeof p.id === 'string' &&
+                  typeof p.name === 'string' &&
+                  typeof p.hindi === 'string' &&
+                  typeof p.price === 'number' &&
+                  typeof p.stock === 'number',
+              )
+            )
+              setProducts(cached);
+          } catch {}
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [live]);
+
   const [category, setCategory] = useState('All essentials'),
     [search, setSearch] = useState(''),
     [cart, setCart] = useState<Cart>({}),
@@ -54,7 +119,7 @@ export default function Storefront() {
     [order, setOrder] = useState<any>(null),
     [busy, setBusy] = useState(false),
     [payment, setPayment] = useState('COD'),
-    [location, setLocation] = useState('Srinagar, 190001'),
+    [location, setLocation] = useState(live ? 'Choose delivery pincode' : 'Srinagar, 190001'),
     [pack, setPack] = useState('all');
   useEffect(() => {
     try {
@@ -64,11 +129,11 @@ export default function Storefront() {
           Object.fromEntries(
             Object.entries(stored).filter(
               ([id, q]) =>
-                products.some((p) => p.id === id) &&
+                (live || products.some((p) => p.id === id)) &&
                 typeof q === 'number' &&
                 Number.isInteger(q) &&
                 q > 0 &&
-                q <= products.find((p) => p.id === id)!.stock,
+                q <= (live ? 500 : products.find((p) => p.id === id)!.stock),
             ),
           ) as Cart,
         );
@@ -76,12 +141,13 @@ export default function Storefront() {
       if (Array.isArray(saved))
         setWish(
           saved.filter(
-            (id: unknown) => typeof id === 'string' && products.some((p) => p.id === id),
+            (id: unknown) => typeof id === 'string' && (live || products.some((p) => p.id === id)),
           ),
         );
       const receipt = JSON.parse(localStorage.getItem('gg-order') || 'null');
       if (
         receipt &&
+        (!live || receipt.demo === false) &&
         typeof receipt.id === 'string' &&
         typeof receipt.total === 'number' &&
         typeof receipt.paymentStatus === 'string'
@@ -159,14 +225,23 @@ export default function Storefront() {
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const summary = useMemo(() => {
     try {
-      return quote(
+      const result = quote(
         Object.entries(cart).map(([id, quantity]) => ({ id, quantity })),
         applied,
+        products,
       );
+      const zone = store?.zones.find(
+        (z) => z.pincode === (checkoutPin || location.match(/[1-9][0-9]{5}/)?.[0]),
+      );
+      if (live && zone) {
+        result.delivery = result.subtotal >= zone.freeAbove ? 0 : zone.fee;
+        result.total = result.subtotal - result.discount + result.delivery;
+      }
+      return result;
     } catch {
       return null;
     }
-  }, [cart, applied]);
+  }, [cart, applied, products, store, checkoutPin, location, live]);
   const visible = useMemo(
     () =>
       products
@@ -189,43 +264,136 @@ export default function Storefront() {
     [category, search, sort, onlyWish, wish, pack],
   );
   const scrollShop = () => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' });
+  async function payOnline(receipt: any): Promise<boolean> {
+    await loadRazorpay();
+    const payment = receipt.payment;
+    if (!payment || !window.Razorpay)
+      throw new Error('Payment details are unavailable. Retry checkout.');
+    return new Promise<boolean>((resolve) => {
+      const popup = new window.Razorpay!({
+        key: payment.key,
+        order_id: payment.id,
+        amount: payment.amount,
+        currency: 'INR',
+        name: store?.name || 'Grain & Good',
+        description: 'Order ' + receipt.id,
+        theme: { color: '#294e3c' },
+        modal: {
+          ondismiss: () => {
+            setMessage('Payment not completed. Your order is reserved for 15 minutes.');
+            resolve(false);
+          },
+        },
+        handler: async (result) => {
+          try {
+            const response = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + receipt.receiptToken,
+              },
+              body: JSON.stringify({
+                orderId: receipt.id,
+                gatewayOrderId: result.razorpay_order_id,
+                paymentId: result.razorpay_payment_id,
+                signature: result.razorpay_signature,
+              }),
+            });
+            const verified = await response.json();
+            if (!response.ok) throw new Error(verified.error || 'Payment verification is pending');
+            const saved = { ...receipt, ...verified };
+            setOrder(saved);
+            localStorage.setItem('gg-order', JSON.stringify(saved));
+            resolve(true);
+          } catch (error) {
+            setMessage(
+              (error instanceof Error ? error.message : 'Payment verification is pending') +
+                '. Check your order before paying again.',
+            );
+            resolve(false);
+          }
+        },
+      });
+      popup.open();
+    });
+  }
+  useEffect(() => {
+    if (!live || panel !== 'orders' || !order?.receiptToken) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const response = await fetch('/api/orders/' + order.id, {
+          headers: { Authorization: 'Bearer ' + order.receiptToken },
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled) {
+          setOrder((previous: any) => ({ ...previous, ...data }));
+          localStorage.setItem('gg-order', JSON.stringify({ ...order, ...data }));
+        }
+      } catch {}
+    };
+    void poll();
+    const timer = setInterval(poll, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [live, panel, order?.id, order?.receiptToken]);
   async function checkout(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (busy) return;
+    if (live && !store) {
+      setMessage('Store information is unavailable. Please refresh before ordering.');
+      return;
+    }
     setBusy(true);
     const form = new FormData(e.currentTarget);
+    const body = {
+      items: Object.entries(cart).map(([id, quantity]) => ({ id, quantity })),
+      name: form.get('name'),
+      phone: form.get('phone'),
+      address: form.get('address'),
+      pincode: form.get('pincode'),
+      slot: form.get('slot'),
+      payment,
+      coupon: applied,
+      ...(live ? { expectedTotal: summary?.total } : {}),
+    };
+    const payload = JSON.stringify(body);
     try {
-      const r = await fetch('/api/orders', {
+      const fingerprint = Array.from(
+        new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload))),
+      )
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
+      let previous: { fingerprint: string; key: string } | null = null;
+      try {
+        previous = JSON.parse(sessionStorage.getItem('gg-checkout') || 'null');
+      } catch {}
+      const key = previous?.fingerprint === fingerprint ? previous.key : crypto.randomUUID();
+      sessionStorage.setItem('gg-checkout', JSON.stringify({ fingerprint, key }));
+      const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key':
-            sessionStorage.getItem('gg-checkout-key') ||
-            (() => {
-              const k = crypto.randomUUID();
-              sessionStorage.setItem('gg-checkout-key', k);
-              return k;
-            })(),
-        },
-        body: JSON.stringify({
-          items: Object.entries(cart).map(([id, quantity]) => ({ id, quantity })),
-          name: form.get('name'),
-          phone: form.get('phone'),
-          address: form.get('address'),
-          pincode: form.get('pincode'),
-          slot: form.get('slot'),
-          payment,
-          coupon: applied,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key },
+        body: payload,
       });
-      const data = await r.json();
-      if (!r.ok) throw Error(data.error || 'Unable to place order');
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 410) sessionStorage.removeItem('gg-checkout');
+        throw new Error(data.error || 'Unable to place order');
+      }
       setOrder(data);
       localStorage.setItem('gg-order', JSON.stringify(data));
-      setCart({});
-      sessionStorage.removeItem('gg-checkout-key');
+      const completed = !data.payment || (await payOnline(data));
+      if (completed) {
+        setCart({});
+        sessionStorage.removeItem('gg-checkout');
+      }
       setPanel('orders');
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Please try again');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Please try again');
     } finally {
       setBusy(false);
     }
@@ -242,8 +410,8 @@ export default function Storefront() {
         </button>
       </div>
     ) : (
-      <button className="add-button" onClick={() => add(p.id)}>
-        ADD <Plus size={15} />
+      <button className="add-button" disabled={p.stock <= 0} onClick={() => add(p.id)}>
+        {p.stock <= 0 ? 'SOLD OUT' : 'ADD'} <Plus size={15} />
       </button>
     );
   return (
@@ -357,6 +525,15 @@ export default function Storefront() {
         </nav>
       </header>
       <main className="wrap">
+        {live && (
+          <div className="demo-notice" role="status">
+            {storeError ||
+              (!store
+                ? 'Loading the store…'
+                : `${store.name} · Delivery in ${store.district}${!store.acceptingOrders ? ' · Orders are paused.' : ''}${store.paymentTestMode ? ' · Online payments are in TEST mode—no real payment is collected.' : ''}`)}
+          </div>
+        )}
+
         <section className="hero">
           <div className="hero-copy">
             <span className="eyebrow">
@@ -399,7 +576,11 @@ export default function Storefront() {
               </div>
               <div>
                 <div className="stars">★★★★★</div>
-                <small>Loved by 2,000+ local families</small>
+                <small>
+                  {live
+                    ? 'Locally delivered. Carefully selected.'
+                    : 'Loved by 2,000+ local families'}
+                </small>
               </div>
             </div>
           </div>
@@ -503,7 +684,14 @@ export default function Storefront() {
                   )}
                 </span>
                 <strong>{c.name}</strong>
-                <small>{c.count} essentials</small>
+                <small>
+                  {live
+                    ? c.name === 'All essentials'
+                      ? products.length
+                      : products.filter((p) => p.category === c.name).length
+                    : c.count}{' '}
+                  essentials
+                </small>
               </button>
             ))}
           </div>
@@ -708,8 +896,9 @@ export default function Storefront() {
           </p>
           <div>
             <strong>We’re here to help</strong>
-            <a href="tel:+911942450000">
-              <Phone size={13} /> +91 194 245 0000
+            <a href={live && store ? `tel:${store.phone}` : 'tel:+911942450000'}>
+              <Phone size={13} />
+              {live ? store?.phone || 'Store support' : '+91 194 245 0000'}
             </a>
           </div>
           <div className="footer-links">
@@ -814,24 +1003,26 @@ export default function Storefront() {
                           </div>
                         ))}
                     </div>
-                    <div className="coupon">
-                      <input
-                        placeholder="Coupon code · try WELCOME10"
-                        aria-label="Coupon code"
-                        value={coupon}
-                        onChange={(e) => setCoupon(e.target.value)}
-                      />
-                      <button
-                        onClick={() => {
-                          if (coupon.toUpperCase() === 'WELCOME10') {
-                            setApplied(coupon);
-                            setMessage('10% off applied, up to ₹100');
-                          } else setMessage('That coupon is not valid');
-                        }}
-                      >
-                        Apply
-                      </button>
-                    </div>
+                    {!live && (
+                      <div className="coupon">
+                        <input
+                          placeholder="Coupon code · try WELCOME10"
+                          aria-label="Coupon code"
+                          value={coupon}
+                          onChange={(e) => setCoupon(e.target.value)}
+                        />
+                        <button
+                          onClick={() => {
+                            if (coupon.toUpperCase() === 'WELCOME10') {
+                              setApplied(coupon);
+                              setMessage('10% off applied, up to ₹100');
+                            } else setMessage('That coupon is not valid');
+                          }}
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    )}
                     {summary && (
                       <div className="totals">
                         <p>
@@ -879,7 +1070,9 @@ export default function Storefront() {
                 <span className="eyebrow">ONE LAST STEP</span>
                 <h2>Fresh essentials, on their way.</h2>
                 <p className="demo-notice">
-                  Demo checkout. No payment is collected and no delivery is scheduled.
+                  {live
+                    ? 'Your order will be saved with the store. Please check your phone number, address and delivery slot.'
+                    : 'Demo checkout. No payment is collected and no delivery is scheduled.'}
                 </p>
                 <form onSubmit={checkout} className="form">
                   <div className="form-row">
@@ -928,21 +1121,51 @@ export default function Storefront() {
                         inputMode="numeric"
                         autoComplete="postal-code"
                         maxLength={6}
-                        defaultValue={location.match(/[1-9][0-9]{5}/)?.[0] || '190001'}
+                        defaultValue={
+                          location.match(/[1-9][0-9]{5}/)?.[0] || (live ? '' : '190001')
+                        }
+                        onChange={(e) => setCheckoutPin(e.target.value)}
                       />
                     </label>
                     <label>
                       Delivery slot
-                      <select name="slot">
-                        <option>Today, 4 PM – 7 PM</option>
-                        <option>Tomorrow, 9 AM – 12 PM</option>
-                        <option>Tomorrow, 4 PM – 7 PM</option>
+                      <select name="slot" required defaultValue={live ? '' : undefined}>
+                        {live ? (
+                          <>
+                            <option value="" disabled>
+                              Choose delivery slot
+                            </option>
+                            {store?.slots.map((slot) => (
+                              <option key={slot.id} value={slot.id}>
+                                {slot.label}
+                              </option>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            <option>Today, 4 PM – 7 PM</option>
+                            <option>Tomorrow, 9 AM – 12 PM</option>
+                            <option>Tomorrow, 4 PM – 7 PM</option>
+                          </>
+                        )}
                       </select>
                     </label>
                   </div>
+                  {live &&
+                    checkoutPin.length === 6 &&
+                    !store?.zones.some((zone) => zone.pincode === checkoutPin) && (
+                      <p className="demo-notice" role="status">
+                        This pincode is valid, but delivery is not currently available there.
+                        Available areas:{' '}
+                        {store?.zones.map((zone) => zone.pincode).join(', ') || 'being configured'}.
+                      </p>
+                    )}
                   <fieldset>
                     <legend>Payment method</legend>
-                    {['COD', 'UPI', 'Card', 'Netbanking'].map((m) => (
+                    {(live && !store?.onlinePayments
+                      ? ['COD']
+                      : ['COD', 'UPI', 'Card', 'Netbanking']
+                    ).map((m) => (
                       <label
                         className={'payment-option ' + (payment === m ? 'checked' : '')}
                         key={m}
@@ -958,7 +1181,11 @@ export default function Storefront() {
                         <small>
                           {m === 'COD'
                             ? 'Pay when it arrives'
-                            : 'Requires live gateway configuration'}
+                            : live
+                              ? store?.paymentTestMode
+                                ? 'Razorpay test checkout'
+                                : 'Secure Razorpay checkout'
+                              : 'Requires live gateway configuration'}
                         </small>
                       </label>
                     ))}
@@ -966,8 +1193,17 @@ export default function Storefront() {
                   <div className="checkout-total">
                     Total to pay <strong>{money(summary?.total || 0)}</strong>
                   </div>
-                  <button disabled={busy || !count} className="primary full">
-                    {busy ? 'Placing your order…' : 'Place demo order'} <ArrowRight size={17} />
+                  <button
+                    disabled={
+                      busy ||
+                      !count ||
+                      !summary ||
+                      (live && (!store || !store.acceptingOrders || !!storeError))
+                    }
+                    className="primary full"
+                  >
+                    {busy ? 'Placing your order…' : live ? 'Place order' : 'Place demo order'}{' '}
+                    <ArrowRight size={17} />
                   </button>
                   <small className="muted">
                     By placing an order, you agree to our{' '}
@@ -981,14 +1217,22 @@ export default function Storefront() {
                 <MapPin size={30} />
                 <h2>Where should goodness arrive?</h2>
                 <p>
-                  Try any valid six-digit Indian pincode in this demo. Real delivery availability
-                  will be confirmed when the store goes live.
+                  {live
+                    ? `Delivery in ${store?.district || 'Anantnag district'}. Available pincodes: ${store?.zones.map((z) => z.pincode).join(', ') || 'being configured'}.`
+                    : 'Try any valid six-digit Indian pincode in this demo. Real delivery availability will be confirmed when the store goes live.'}
                 </p>
                 <form
                   className="form"
                   onSubmit={(e) => {
                     e.preventDefault();
                     const v = new FormData(e.currentTarget).get('pincode');
+                    if (live && !store?.zones.some((z) => z.pincode === v)) {
+                      setMessage(
+                        'This pincode is valid, but delivery is not currently available there.',
+                      );
+                      return;
+                    }
+                    setCheckoutPin(String(v));
                     setLocation(`PIN ${v}`);
                     setPanel(null);
                     setMessage('Delivery location updated');
@@ -1017,7 +1261,11 @@ export default function Storefront() {
               <>
                 <User size={30} />
                 <h2>Welcome to your neighbourhood.</h2>
-                <p>Track your demo order or register your kirana to explore wholesale benefits.</p>
+                <p>
+                  {live
+                    ? 'Track your latest order or update your delivery location.'
+                    : 'Track your demo order or register your kirana to explore wholesale benefits.'}
+                </p>
                 <div className="account-options">
                   <button onClick={() => setPanel('location')}>
                     <MapPin /> Delivery location <ChevronRight />
@@ -1111,7 +1359,15 @@ export default function Storefront() {
                 {order ? (
                   <>
                     <CheckCircle2 size={42} className="success" />
-                    <h2>Your demo order is placed!</h2>
+                    <h2>
+                      {order.demo
+                        ? 'Your demo order is placed!'
+                        : order.status === 'CANCELLED'
+                          ? 'Your order was cancelled.'
+                          : order.paymentStatus === 'PENDING' || order.paymentStatus === 'FAILED'
+                            ? 'Your order is awaiting payment.'
+                            : 'Your order is placed!'}
+                    </h2>
                     <p>Thank you for choosing a little everyday goodness.</p>
                     <div className="order-ref">
                       <small>ORDER NUMBER</small>
@@ -1123,7 +1379,21 @@ export default function Storefront() {
                     <div className="timeline">
                       {['Placed', 'Confirmed', 'Packed', 'Out for delivery', 'Delivered'].map(
                         (s, i) => (
-                          <div key={s} className={i === 0 ? 'done' : ''}>
+                          <div
+                            key={s}
+                            className={
+                              i <=
+                              [
+                                'PLACED',
+                                'CONFIRMED',
+                                'PACKED',
+                                'OUT_FOR_DELIVERY',
+                                'DELIVERED',
+                              ].indexOf(order.status)
+                                ? 'done'
+                                : ''
+                            }
+                          >
                             <span>{i === 0 ? <Check size={13} /> : i + 1}</span>
                             {s}
                           </div>
@@ -1131,15 +1401,45 @@ export default function Storefront() {
                       )}
                     </div>
                     <p className="demo-notice">
-                      This is a demo receipt, not a tax invoice. Order status will not advance
-                      without a live order service.
+                      {order.demo
+                        ? 'This is a demo receipt, not a tax invoice. Order status will not advance without a live order service.'
+                        : order.status === 'CANCELLED' && order.paymentStatus === 'PAID'
+                          ? 'Payment was received after cancellation. Please contact the store for a refund.'
+                          : 'Your order is saved. This page checks the latest status automatically. Your receipt link is private; keep it safe.'}
                     </p>
+                    {live &&
+                      order.method?.startsWith('RAZORPAY') &&
+                      order.paymentStatus !== 'PAID' &&
+                      order.status !== 'CANCELLED' &&
+                      order.payment && (
+                        <button
+                          className="primary full"
+                          disabled={busy}
+                          onClick={async () => {
+                            setBusy(true);
+                            try {
+                              if (await payOnline(order)) {
+                                setCart({});
+                                sessionStorage.removeItem('gg-checkout');
+                              }
+                            } catch (error) {
+                              setMessage(
+                                error instanceof Error ? error.message : 'Unable to open payment',
+                              );
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                        >
+                          Complete payment
+                        </button>
+                      )}
                     <button
                       className="secondary full"
                       onClick={() => {
                         const blob = new Blob(
                           [
-                            `GRAIN & GOOD — DEMO RECEIPT\nOrder: ${order.id}\nTotal: ${money(order.total)}\nStatus: ${order.paymentStatus}\nNot a tax invoice. No payment collected.`,
+                            `${store?.name || 'GRAIN & GOOD'} — ${order.demo ? 'DEMO ' : ''}RECEIPT\nOrder: ${order.id}\nTotal: ${money(order.total)}\nStatus: ${order.paymentStatus}\nNot a tax invoice.${order.demo ? ' No payment collected.' : ''}`,
                           ],
                           { type: 'text/plain' },
                         );
@@ -1151,7 +1451,7 @@ export default function Storefront() {
                       }}
                     >
                       <Download size={16} />
-                      Download demo receipt
+                      {order.demo ? 'Download demo receipt' : 'Download receipt'}
                     </button>
                   </>
                 ) : (

@@ -3,6 +3,12 @@ import { createHash } from 'node:crypto';
 import { quote } from '@/lib/rules';
 import { sameOrigin } from '@/lib/security';
 import { PINCODE_REGEX, PINCODE_HINT } from '@/lib/pincode';
+import { liveMode, liveSettings, onlinePaymentsEnabled, StoreError } from '@/lib/live-config';
+import { orderInput } from '@/lib/order-input';
+import { placeOrder, publicOrder } from '@/lib/live-orders';
+import { gatewayOrder } from '@/lib/live-payments';
+import { rateLimit } from '@/lib/security';
+import { readJson, apiError } from '@/lib/http';
 const schema = z.object({
   items: z
     .array(z.object({ id: z.string().max(50), quantity: z.number().int().min(1).max(500) }))
@@ -18,13 +24,36 @@ const schema = z.object({
 });
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return Response.json({ error: 'Invalid origin' }, { status: 403 });
-  // This storefront deliberately fails closed for live checkout until authenticated
-  // stock reservation, delivery capacity, and provider integrations are enabled.
-  if (process.env.DEMO_MODE === 'false')
-    return Response.json(
-      { error: 'Live checkout is not enabled. Please contact the store.' },
-      { status: 503 },
-    );
+  if (liveMode()) {
+    try {
+      liveSettings();
+      if (process.env.ACCEPT_ORDERS !== 'true')
+        throw new StoreError(
+          'The store is not accepting new orders yet. Please contact the merchant.',
+          503,
+        );
+      const data = orderInput.parse(await readJson(req));
+      const key = z.string().uuid().parse(req.headers.get('Idempotency-Key'));
+      if (data.payment !== 'COD' && !onlinePaymentsEnabled())
+        throw new StoreError(
+          'Online payments are not enabled. Please choose cash on delivery.',
+          503,
+        );
+      if (
+        !(await rateLimit('checkout:global', 600)) ||
+        !(await rateLimit('checkout:' + createHash('sha256').update(data.phone).digest('hex'), 5))
+      )
+        throw new StoreError('Too many checkout attempts. Please wait one minute.', 429);
+      const order = await placeOrder(data, key);
+      const payment = await gatewayOrder(order);
+      return Response.json(
+        { ...publicOrder(order), payment },
+        { status: 201, headers: { 'Cache-Control': 'no-store' } },
+      );
+    } catch (error) {
+      return apiError(error);
+    }
+  }
   if (Number(req.headers.get('content-length') || 0) > 16000)
     return Response.json({ error: 'Request too large' }, { status: 413 });
   try {
