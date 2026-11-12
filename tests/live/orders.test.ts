@@ -164,6 +164,28 @@ test('cancelling before packing releases stock and slot capacity once', async ()
   );
   assert.equal((await db.deliverySlot.findUniqueOrThrow({ where: { id: data.slot } })).booked, 0);
 });
+test('free delivery includes an order whose subtotal equals the zone threshold', async () => {
+  await db.deliveryZone.update({
+    where: { pincode: '192210' },
+    data: { fee: 2500, freeAbove: 20000, codLimit: 500000 },
+  });
+  const free = await placeOrder(data, randomUUID());
+  assert.equal(free.subtotal, 20000);
+  assert.equal(free.deliveryFee, 0);
+  assert.equal(free.total, 20000);
+  const paid = await placeOrder(
+    {
+      ...data,
+      items: [{ id: 'integration-rice', quantity: 1 }],
+      phone: '9999999993',
+      expectedTotal: 12500,
+    },
+    randomUUID(),
+  );
+  assert.equal(paid.subtotal, 10000);
+  assert.equal(paid.deliveryFee, 2500);
+  assert.equal(paid.total, 12500);
+});
 test('COD fulfilment enforces transitions and explicit cash collection', async () => {
   const order = await placeOrder(data, randomUUID());
   await assert.rejects(() => changeOrderStatus(order.id, 'DELIVERED', true), /not allowed/);

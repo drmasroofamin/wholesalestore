@@ -4,7 +4,7 @@ import { database } from './db';
 import { OrderInput } from './order-input';
 import { StoreError } from './live-config';
 import { receiptToken } from './admin-auth';
-import { splitTax } from './rules';
+import { deliveryCharge, splitTax } from './rules';
 const detail = {
   items: true,
   history: { orderBy: { createdAt: 'asc' as const } },
@@ -110,7 +110,7 @@ export async function placeOrder(data: OrderInput, key: string, db: PrismaClient
           throw new StoreError('Coupon is not valid for this order');
         discount = Math.min(Math.round((subtotal * c.percent) / 100), c.maximum, subtotal);
       }
-      const deliveryFee = subtotal >= zone.freeAbove ? 0 : zone.fee;
+      const deliveryFee = deliveryCharge(subtotal, zone.freeAbove, zone.fee);
       const total = subtotal - discount + deliveryFee;
       if (!Number.isSafeInteger(total) || total < 100 || total > 10000000)
         throw new StoreError('Order value must be between ₹1 and ₹1,00,000');

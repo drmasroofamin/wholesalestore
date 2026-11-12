@@ -1,5 +1,6 @@
 import { database } from '../lib/db';
 import { products, Product } from '../lib/catalog';
+import { ensureDeliverySlots } from '../lib/delivery-slots';
 const db = database();
 async function seedProduct(p: Product) {
   const c = await db.category.upsert({
@@ -45,13 +46,15 @@ async function main() {
   // prices or stock that are already stored.
   if (existing.length > 0 && missing.length === 0) {
     console.log('Catalog already present; skipping seed.');
-    return;
+  } else {
+    for (const p of existing.length === 0 ? products : missing) await seedProduct(p);
+    console.log(
+      existing.length === 0
+        ? `Seeded ${products.length} products without overwriting existing prices or stock. Product photos and names were refreshed. New products start at zero stock unless SEED_SAMPLE_STOCK=true.`
+        : `Catalog already had ${existing.length} products. Added ${missing.length} missing catalog product(s) without changing existing prices or stock. New products start at zero stock unless SEED_SAMPLE_STOCK=true.`,
+    );
   }
-  for (const p of existing.length === 0 ? products : missing) await seedProduct(p);
-  console.log(
-    existing.length === 0
-      ? `Seeded ${products.length} products without overwriting existing prices or stock. Product photos and names were refreshed. New products start at zero stock unless SEED_SAMPLE_STOCK=true.`
-      : `Catalog already had ${existing.length} products. Added ${missing.length} missing catalog product(s) without changing existing prices or stock. New products start at zero stock unless SEED_SAMPLE_STOCK=true.`,
-  );
+  const created = await ensureDeliverySlots(7, 20, db);
+  console.log(`Delivery slots ensured for the next 7 days at capacity 20. Created ${created}.`);
 }
 main().finally(() => db.$disconnect());

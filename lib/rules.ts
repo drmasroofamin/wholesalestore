@@ -22,6 +22,13 @@ export function splitTax(inclusive: number, rate: number, interstate = false) {
     igst: interstate ? total : 0,
   };
 }
+/** Paise. Demo checkout, and the live offer before a pincode matches a zone. */
+export const DEFAULT_DELIVERY_FEE = 2500;
+/** Paise. Free when subtotal >= this value, so an order of exactly ₹500 is free. */
+export const DEFAULT_FREE_DELIVERY_ABOVE = 50000;
+export function deliveryCharge(subtotal: number, freeAbove: number, fee: number) {
+  return subtotal >= freeAbove ? 0 : fee;
+}
 export function quote(
   items: { id: string; quantity: number }[],
   coupon = '',
@@ -38,7 +45,7 @@ export function quote(
   const subtotal = lines.reduce((s, l) => s + l.total, 0);
   const discount =
     coupon.toUpperCase() === 'WELCOME10' ? Math.min(Math.round(subtotal * 0.1), 10000) : 0;
-  const delivery = subtotal >= 99900 ? 0 : 3900;
+  const delivery = deliveryCharge(subtotal, DEFAULT_FREE_DELIVERY_ABOVE, DEFAULT_DELIVERY_FEE);
   return {
     lines,
     subtotal,

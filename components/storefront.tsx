@@ -34,7 +34,7 @@ import {
   Download,
 } from 'lucide-react';
 import { categories, money, products as demoProducts, Product } from '@/lib/catalog';
-import { quote } from '@/lib/rules';
+import { quote, deliveryCharge, DEFAULT_FREE_DELIVERY_ABOVE } from '@/lib/rules';
 import { BrandWord } from './brand-word';
 type Cart = Record<string, number>;
 type StoreConfig = {
@@ -263,7 +263,7 @@ export default function Storefront({
         (z) => z.pincode === (checkoutPin || location.match(/[1-9][0-9]{5}/)?.[0]),
       );
       if (live && zone) {
-        result.delivery = result.subtotal >= zone.freeAbove ? 0 : zone.fee;
+        result.delivery = deliveryCharge(result.subtotal, zone.freeAbove, zone.fee);
         result.total = result.subtotal - result.discount + result.delivery;
       }
       return result;
@@ -444,12 +444,21 @@ export default function Storefront({
         {p.stock <= 0 ? 'SOLD OUT' : 'ADD'} <Plus size={15} />
       </button>
     );
+  const knownPin = checkoutPin || location.match(/[1-9][0-9]{5}/)?.[0];
+  const matchedZone =
+    live && knownPin ? store?.zones.find((zone) => zone.pincode === knownPin) : undefined;
+  const freeAbove = matchedZone?.freeAbove ?? DEFAULT_FREE_DELIVERY_ABOVE;
+  const deliveryOffer =
+    matchedZone?.fee === 0
+      ? 'Free delivery on every order'
+      : `Free delivery on orders of ${money(freeAbove)} or more`;
+  const freeDeliveryUnlocked = matchedZone?.fee === 0 || (summary?.subtotal || 0) >= freeAbove;
   return (
     <>
       <div className="announcement">
         <span>Good food. Honest prices. A little goodness, every day.</span>
         <span className="announcement-right">
-          <Truck size={14} /> Free delivery on orders above ₹999 <span className="dot">•</span>{' '}
+          <Truck size={14} /> {deliveryOffer} <span className="dot">•</span>{' '}
           <button onClick={() => setLang(!lang)}>{lang ? 'English' : 'हिन्दी'}</button>
         </span>
       </div>
@@ -1010,9 +1019,9 @@ export default function Storefront({
                   <>
                     <div className="delivery-progress">
                       <Truck size={19} />
-                      {(summary?.subtotal || 0) >= 99900
+                      {freeDeliveryUnlocked
                         ? 'You’ve unlocked free delivery!'
-                        : `Add ${money(99900 - (summary?.subtotal || 0))} for free delivery`}
+                        : `Add ${money(freeAbove - (summary?.subtotal || 0))} for free delivery`}
                     </div>
                     <div className="cart-items">
                       {products
