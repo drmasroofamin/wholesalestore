@@ -55,7 +55,7 @@ beforeEach(async () => {
       name: 'Integration Rice',
       hindi: 'चावल',
       categoryId: 'integration-category',
-      image: '/products/rice.svg',
+      image: '/products/rice.webp',
       hsn: '1006',
       gst: 5,
       variants: {

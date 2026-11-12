@@ -34,11 +34,11 @@ async function main() {
           },
         },
       },
-      update: {},
+      update: { image: p.image, name: p.name, hindi: p.hindi },
     });
   }
   console.log(
-    'Seeded 8 products without overwriting existing prices or stock. New products start at zero stock unless SEED_SAMPLE_STOCK=true.',
+    'Seeded 8 products without overwriting existing prices or stock. Product photos and names were refreshed. New products start at zero stock unless SEED_SAMPLE_STOCK=true.',
   );
 }
 main().finally(() => db.$disconnect());

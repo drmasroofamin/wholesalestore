@@ -48,6 +48,11 @@ export default function Policies() {
           ? 'Prices are in INR. The final server-verified total, applicable GST and delivery fee are shown before checkout. COD is subject to your delivery zone’s order-value limit. Online payment is processed through Razorpay. An online order is fulfilment-ready only after the server confirms captured payment. Test-mode payments are identified and cannot be fulfilled as paid orders.'
           : 'Displayed prices and business details are sample data.'}
       </p>
+      <p>
+        Product photos are stock photographs used under the licences recorded with this site. They
+        illustrate the food and do not guarantee branded packaging.{' '}
+        <a href="/products/CREDITS.md">Photo credits and licences</a>.
+      </p>
       <h2>Cancellation & refunds</h2>
       <p>
         {live

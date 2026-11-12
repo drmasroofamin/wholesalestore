@@ -41,7 +41,7 @@ The first live workflow includes:
 - Server-created Razorpay orders, signed browser verification, amount/currency checks, idempotent signed webhooks and monotonic captured/failed/refunded state handling.
 - Test-mode payments labelled and blocked from fulfilment. Late capture after cancellation flagged for merchant refund review. Refunds are initiated in the Razorpay dashboard and reconciled by signed webhooks.
 - 15-minute unpaid online reservations, an authenticated expiry endpoint and a throttled catalogue-traffic fallback sweep.
-- Local product artwork/fonts, separately loaded admin routes, bounded PostgreSQL pools and a public catalogue cache of 15 seconds. Private/admin/payment APIs are not cached by the offline worker.
+- Local product photos/fonts, separately loaded admin routes, bounded PostgreSQL pools and a public catalogue cache of 15 seconds. Private/admin/payment APIs are not cached by the offline worker.
 
 ## Commands
 
@@ -83,7 +83,7 @@ scripts/                    Migrations, password setup, client generation and lo
 tests/                      Unit/API/schema tests and demo browser coverage
 tests/live/                 Actual PostgreSQL/Redis integration coverage
 tests/live-browser/         Customer-to-admin saved COD order verification
-public/                     Local illustrations, icons, recovery page and offline worker
+public/                     Local licensed product photos, icons, recovery page and offline worker
 ```
 
 ## API overview
@@ -131,3 +131,9 @@ npm run dev:clean
 ```
 
 Open `/reset.html` on the exact localhost address/port that failed, wait for the cleanup confirmation, then choose **Return to the store**. This standalone page works without React, removes only this app's service workers/offline caches and keeps your cart/favourites. If needed, unregister the old service worker in browser developer tools → Application → Service Workers. Copy commands without the terminal prompt or commas.
+
+## Photos and operating guides
+
+The optimized WebP photos and their licences are preserved in [public/products/CREDITS.md](public/products/CREDITS.md). They illustrate the food, not a guaranteed branded packet. The seed refreshes existing product photos/names without overwriting their prices or stock.
+
+[docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) describes the demo workflow at the photo-update commit. Use [LIVE_LAUNCH.md](LIVE_LAUNCH.md) for the current database-backed workflow and Vercel setup.

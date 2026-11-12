@@ -584,12 +584,12 @@ export default function Storefront({ live = false }: { live?: boolean }) {
               </div>
             </div>
           </div>
-          <div className="hero-art" aria-label="An assortment of fresh grains in earthen bowls">
+          <div className="hero-art" aria-label="Everyday Indian spices on spoons">
             <img
-              src="/harvest.svg"
-              width="760"
-              height="520"
-              alt="Rice, lentils and grains in hand-crafted bowls"
+              src="/harvest.webp"
+              width="1100"
+              height="733"
+              alt="Turmeric, mustard seeds, chilli powder and cumin"
               fetchPriority="high"
             />
             <div className="harvest-label">
@@ -663,24 +663,10 @@ export default function Storefront({ live = false }: { live?: boolean }) {
                 }}
               >
                 <span className="category-art">
-                  {c.name === 'All essentials' ? (
-                    <ShoppingBag size={36} strokeWidth={1.2} />
+                  {c.image ? (
+                    <img src={c.image} alt="" />
                   ) : (
-                    <img
-                      src={
-                        '/products/' +
-                        {
-                          Rice: 'rice',
-                          'Atta & flour': 'atta',
-                          'Pulses & dals': 'dal',
-                          Millets: 'millet',
-                          'Oils & ghee': 'oil',
-                          'Sugar & spices': 'sugar',
-                        }[c.name] +
-                        '.svg'
-                      }
-                      alt=""
-                    />
+                    <ShoppingBag size={36} strokeWidth={1.2} />
                   )}
                 </span>
                 <strong>{c.name}</strong>
@@ -904,6 +890,7 @@ export default function Storefront({ live = false }: { live?: boolean }) {
           <div className="footer-links">
             <button onClick={() => setPanel('orders')}>My orders</button>
             <a href="/policies">Privacy & policies</a>
+            <a href="/products/CREDITS.md">Photo credits</a>
             <a href="/admin">
               Admin dashboard <ArrowUpRight size={12} />
             </a>
