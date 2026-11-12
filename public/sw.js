@@ -1,16 +1,16 @@
-const CACHE = 'grain-good-v1';
+const CACHE = 'grain-good-v2';
 const ASSETS = [
   '/',
   '/icon.svg',
-  '/harvest.svg',
-  '/products/rice.svg',
-  '/products/atta.svg',
-  '/products/dal.svg',
-  '/products/oil.svg',
-  '/products/moong.svg',
-  '/products/sugar.svg',
-  '/products/millet.svg',
-  '/products/chana.svg',
+  '/harvest.webp',
+  '/products/rice.webp',
+  '/products/atta.webp',
+  '/products/dal.webp',
+  '/products/oil.webp',
+  '/products/moong.webp',
+  '/products/sugar.webp',
+  '/products/millet.webp',
+  '/products/chana.webp',
 ];
 self.addEventListener('install', (event) =>
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS))),

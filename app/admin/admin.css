@@ -568,6 +568,13 @@ td input[type='checkbox'] {
   gap: 9px;
   align-items: center;
 }
+.customer-cell img {
+  width: 35px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #f1f0e5;
+}
 .customer-cell > span {
   display: grid;
   place-items: center;

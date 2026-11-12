@@ -1,6 +1,6 @@
 # Grain & Good
 
-Mobile-first grain and grocery storefront with a responsive merchant workspace. Built with Next.js App Router, React, TypeScript, locally hosted fonts and illustrations, and a PostgreSQL/Prisma data foundation.
+Mobile-first grain and grocery storefront with a responsive merchant workspace. Built with Next.js App Router, React, TypeScript, locally hosted fonts and product photos, and a PostgreSQL/Prisma data foundation.
 
 **Current release is a working demonstration, not a production commerce launch.** No money is collected, no delivery is scheduled, and admin changes affect sample data only. Do not enter real KYC or sensitive customer information.
 
@@ -23,7 +23,7 @@ For a production build, run `npm run build` and `npm start`. Docker uses the sta
 
 ## What works
 
-- Responsive storefront, local product illustrations, locally hosted fonts, English/Hindi product search, category and pack filters, sorting, product detail dialogs.
+- Responsive storefront, local product photos, locally hosted fonts, English/Hindi product search, category and pack filters, sorting, product detail dialogs.
 - Favourites and cart persisted on the device; quantities bounded by sample stock; free-delivery threshold, coupon calculation, GST-inclusive totals.
 - One-page validated COD **demo** checkout. Trusted server catalogue determines prices. Duplicate checkout keys produce the same demo receipt ID; there are no persistent side effects.
 - Latest demo receipt survives reload; downloadable text receipt is explicitly not a tax invoice.
@@ -37,18 +37,18 @@ For a production build, run `npm run build` and `npm start`. Docker uses the sta
 
 ## Scope still required before live launch
 
-| Area | Remaining work |
-| --- | --- |
-| Authentication | Provider-backed OTP, OTP rate limits, expiring sessions/refresh tokens, logout/revocation, RBAC and authorization of every live endpoint |
-| Orders | Connect database-backed carts/orders, transactional stock reservation/release, authoritative slot capacity, price recalculation and reservation expiry worker |
-| Payments | Connect Razorpay order creation to durable internal orders, launch hosted checkout, reconcile signed webhook events transactionally with unique event IDs, retries, settlement/refund workers |
-| Admin | Replace public sample workspace with authenticated, audited APIs and persistent CRUD; implement real customer, KYC and staff controls |
-| B2B | Persist approvals, verified GST/PAN, per-retailer prices, enforce credit/overdue rules atomically, quick/CSV orders, standing orders |
-| Fulfilment | Delivery partner authorization, assignment, real status updates, COD reconciliation and capacity rules |
-| Documents | Verified business identifiers, GST invoice/challan PDF generation, storage and signed document URLs |
-| Remaining services | Wallet ledger/refunds, notifications, reviews, recurring orders, live reports, returns and uploads |
-| Language/accessibility | Hindi content is partial; full translation dictionaries and an accessibility audit are still required |
-| Legal | Replace policy drafts and sample support number with verified merchant details, FSSAI/GST information and actual refund/service terms |
+| Area                   | Remaining work                                                                                                                                                                                |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authentication         | Provider-backed OTP, OTP rate limits, expiring sessions/refresh tokens, logout/revocation, RBAC and authorization of every live endpoint                                                      |
+| Orders                 | Connect database-backed carts/orders, transactional stock reservation/release, authoritative slot capacity, price recalculation and reservation expiry worker                                 |
+| Payments               | Connect Razorpay order creation to durable internal orders, launch hosted checkout, reconcile signed webhook events transactionally with unique event IDs, retries, settlement/refund workers |
+| Admin                  | Replace public sample workspace with authenticated, audited APIs and persistent CRUD; implement real customer, KYC and staff controls                                                         |
+| B2B                    | Persist approvals, verified GST/PAN, per-retailer prices, enforce credit/overdue rules atomically, quick/CSV orders, standing orders                                                          |
+| Fulfilment             | Delivery partner authorization, assignment, real status updates, COD reconciliation and capacity rules                                                                                        |
+| Documents              | Verified business identifiers, GST invoice/challan PDF generation, storage and signed document URLs                                                                                           |
+| Remaining services     | Wallet ledger/refunds, notifications, reviews, recurring orders, live reports, returns and uploads                                                                                            |
+| Language/accessibility | Hindi content is partial; full translation dictionaries and an accessibility audit are still required                                                                                         |
+| Legal                  | Replace policy drafts and sample support number with verified merchant details, FSSAI/GST information and actual refund/service terms                                                         |
 
 Setting `DEMO_MODE=false` **fails closed** with HTTP 503. Adding gateway keys alone does not enable live commerce. The application does not claim complete implementation of the uploaded four-phase specification.
 
@@ -63,7 +63,7 @@ lib/payments.ts        Provider boundary and Razorpay adapter
 lib/security.ts        HMAC verification, origin check, Redis rate-limit utility
 lib/db.ts              Singleton Prisma client + capped PostgreSQL pool
 prisma/                29-model schema, initial migration, safe upsert seed
-public/                Local illustrations, font-independent icons, PWA worker
+public/                Local product photos, font-independent icons, PWA worker
 scripts/               Client generation, schema checks and staging load scenario
 tests/                 Unit/API tests, SQL migration smoke test, browser tests
 ```
@@ -77,6 +77,8 @@ npm run db:migrate
 npm run db:seed
 ```
 
+`db:seed` reads `.env` when that file exists and requires `DATABASE_URL`. It uses the Postgres driver adapter, refreshes product photos on later runs, and does not overwrite existing prices or stock.
+
 The compose database password is for local development only. Production must use managed credentials, TLS, backups, restore testing and private database/Redis access. `db:push` is available for disposable development databases; use reviewed migrations for real data.
 
 Client generation uses Prisma 6.19's packaged WASM parser and JavaScript query compiler with `@prisma/adapter-pg`, avoiding native query-engine downloads. `@prisma/internals` is pinned because its generator API is internal. Upgrade it together with Prisma and rerun all checks. Standard `prisma generate` is an alternative on networks that allow Prisma's engine distribution domain.
@@ -85,11 +87,11 @@ The native Prisma migration CLI may require `binaries.prisma.sh`. This cloud env
 
 ## APIs
 
-| Method/path | Behaviour |
-| --- | --- |
-| `GET /api/catalog` | Static sample catalogue; CDN cache 300s, stale-while-revalidate 3600s |
-| `POST /api/orders` | Validated demo COD receipt. `Idempotency-Key` UUID required; no PII persisted |
-| `POST /api/payments/verify` | Live-disabled signature-verification boundary; never marks a payment paid |
+| Method/path                  | Behaviour                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| `GET /api/catalog`           | Static sample catalogue; CDN cache 300s, stale-while-revalidate 3600s                   |
+| `POST /api/orders`           | Validated demo COD receipt. `Idempotency-Key` UUID required; no PII persisted           |
+| `POST /api/payments/verify`  | Live-disabled signature-verification boundary; never marks a payment paid               |
 | `POST /api/payments/webhook` | Live-disabled signed event boundary; never acknowledges unpersisted events as processed |
 
 Checkout JSON: `{ items: [{id, quantity}], name, phone, address, pincode, slot, payment, coupon }`. Demo checkout accepts any correctly formatted six-digit Indian pincode, including 192210. This validates format only and does not establish delivery coverage; live serviceability must use configured delivery zones. Use the slots displayed in checkout. COD demo limit: ₹25,000. Coupon: `WELCOME10` (10%, capped at ₹100). Tax is included in displayed B2C prices.

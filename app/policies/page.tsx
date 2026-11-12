@@ -15,9 +15,10 @@ export default function Policies() {
       </p>
       <h2>Terms of service</h2>
       <p>
-        Catalogue prices and availability are sample data in INR. Product artwork is illustrative.
-        Live ordering requires published merchant identity, customer support details, applicable
-        licences, verified tax settings and payment-provider activation.
+        Catalogue prices and availability are sample data in INR. Product photos are stock
+        photographs used under the licences recorded with the site. Live ordering requires published
+        merchant identity, customer support details, applicable licences, verified tax settings and
+        payment-provider activation.
       </p>
       <h2>Cancellation & refunds</h2>
       <p>

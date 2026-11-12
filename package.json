@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "node scripts/generate-client.cjs",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "db:validate": "node scripts/check-schema.cjs",
     "db:migrate": "prisma migrate deploy",
     "test:e2e": "playwright test",
