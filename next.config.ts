@@ -5,6 +5,9 @@ const config: NextConfig = {
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   poweredByHeader: false,
   outputFileTracingIncludes: { '/api/**/*': ['./node_modules/.prisma/client/**/*'] },
+  async redirects() {
+    return [{ source: '/products/CREDITS.md', destination: '/credits', permanent: true }];
+  },
   async headers() {
     return [
       {

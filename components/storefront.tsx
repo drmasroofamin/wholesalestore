@@ -35,7 +35,9 @@ import {
 } from 'lucide-react';
 import { categories, money, products as demoProducts, Product } from '@/lib/catalog';
 import { quote, deliveryCharge, DEFAULT_FREE_DELIVERY_ABOVE } from '@/lib/rules';
+import { phoneLink } from '@/lib/store-profile';
 import { BrandWord } from './brand-word';
+import { SiteFooter } from './site-footer';
 type Cart = Record<string, number>;
 type StoreConfig = {
   live: boolean;
@@ -52,9 +54,15 @@ type StoreConfig = {
 export default function Storefront({
   live = false,
   name = 'zebastore',
+  phone = '',
+  email = '',
+  address = '',
 }: {
   live?: boolean;
   name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
 }) {
   const [products, setProducts] = useState<Product[]>(live ? [] : demoProducts);
   const [store, setStore] = useState<StoreConfig | null>(null),
@@ -298,7 +306,7 @@ export default function Storefront({
                 ? Number(b.rating) - Number(a.rating)
                 : 0,
         ),
-    [category, search, sort, onlyWish, wish, pack],
+    [products, category, search, sort, onlyWish, wish, pack],
   );
   const scrollShop = () => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' });
   const brand = store?.name?.trim() || name;
@@ -448,10 +456,21 @@ export default function Storefront({
         </button>
       </div>
     ) : (
-      <button className="add-button" disabled={p.stock <= 0} onClick={() => add(p.id)}>
-        {p.stock <= 0 ? 'SOLD OUT' : 'ADD'} <Plus size={15} />
+      <button
+        className={'add-button' + (p.stock <= 0 ? ' out' : '')}
+        disabled={p.stock <= 0}
+        onClick={() => add(p.id)}
+      >
+        {p.stock <= 0 ? (
+          'Out of stock'
+        ) : (
+          <>
+            ADD <Plus size={15} />
+          </>
+        )}
       </button>
     );
+  const support = phoneLink(store?.phone || phone);
   const knownPin = checkoutPin || location.match(/[1-9][0-9]{5}/)?.[0];
   const matchedZone =
     live && knownPin ? store?.zones.find((zone) => zone.pincode === knownPin) : undefined;
@@ -786,15 +805,22 @@ export default function Storefront({
               <option>1 pack</option>
             </select>
           </div>
+          {visible.length > 0 && visible.every((p) => p.stock <= 0) && (
+            <p className="stock-note" role="status">
+              These products are listed with their prices. Each one is out of stock until the store
+              restocks it.
+            </p>
+          )}
           <div className="product-grid">
             {visible.map((p) => (
-              <article className="product-card" key={p.id}>
+              <article className={'product-card' + (p.stock <= 0 ? ' is-out' : '')} key={p.id}>
                 <div className={'product-image ' + p.id}>
                   {p.tag && (
                     <span className={'product-tag ' + (p.tag === 'BESTSELLER' ? 'orange' : '')}>
                       {p.tag}
                     </span>
                   )}
+                  {p.stock <= 0 && <span className="stock-badge">Out of stock</span>}
                   <button
                     className={'heart ' + (wish.includes(p.id) ? 'saved' : '')}
                     onClick={() => toggleWish(p.id)}
@@ -919,45 +945,13 @@ export default function Storefront({
           </div>
         </section>
       </main>
-      <footer>
-        <div className="wrap footer-main">
-          <a className="brand" href="/">
-            <Wheat size={30} />
-            <div>
-              <BrandWord name={brand} />
-              <small>GOOD FOOD. GOOD LIVING.</small>
-            </div>
-          </a>
-          <p>
-            Your everyday essentials.
-            <br />
-            Our everyday promise.
-          </p>
-          <div>
-            <strong>We’re here to help</strong>
-            <a href={live && store ? `tel:${store.phone}` : 'tel:+911942450000'}>
-              <Phone size={13} />
-              {live ? store?.phone || 'Store support' : '+91 194 245 0000'}
-            </a>
-          </div>
-          <div className="footer-links">
-            <button onClick={() => setPanel('orders')}>My orders</button>
-            <a href="/policies">Privacy & policies</a>
-            <a href="/products/CREDITS.md">Photo credits</a>
-            <a href="/admin">
-              Admin dashboard <ArrowUpRight size={12} />
-            </a>
-          </div>
-        </div>
-        <div className="wrap footer-bottom">
-          <span>
-            © {new Date().getFullYear()} {brand}. Rooted in goodness.
-          </span>
-          <span>
-            Secure payments <b>UPI</b> <b>VISA</b> <b>RuPay</b> <ShieldCheck size={14} />
-          </span>
-        </div>
-      </footer>
+      <SiteFooter
+        name={brand}
+        phone={store?.phone || phone}
+        email={email}
+        address={address}
+        onOrders={() => setPanel('orders')}
+      />
       {count > 0 && (
         <button className="mobile-cart" onClick={() => setPanel('cart')}>
           <ShoppingBag size={19} /> {count} items{' '}
@@ -1007,7 +1001,8 @@ export default function Storefront({
                   your everyday kitchen, packed fresh by {brand}.
                 </p>
                 <p>
-                  {detail.pack} · HSN {detail.hsn} · {detail.stock} packs available
+                  {detail.pack} · HSN {detail.hsn}
+                  {detail.stock > 0 ? ` · ${detail.stock} packs available` : ' · Out of stock'}
                 </p>
                 <h2>
                   {money(detail.price)}{' '}
@@ -1261,12 +1256,8 @@ export default function Storefront({
                       >
                         Refresh delivery slots
                       </button>
-                      {!slotsLoading && !store?.slots.length && store?.phone && (
-                        <a
-                          className="text-link"
-                          style={{ marginLeft: 16 }}
-                          href={`tel:${store.phone}`}
-                        >
+                      {!slotsLoading && !store?.slots.length && support && (
+                        <a className="text-link" style={{ marginLeft: 16 }} href={support.href}>
                           Contact store
                         </a>
                       )}
@@ -1353,8 +1344,8 @@ export default function Storefront({
                     <ArrowRight size={17} />
                   </button>
                   <small className="muted">
-                    By placing an order, you agree to our{' '}
-                    <a href="/policies">terms & refund policy</a>.
+                    By placing an order, you agree to our <a href="/terms">terms</a> and{' '}
+                    <a href="/refund-policy">cancellation and refund policy</a>.
                   </small>
                 </form>
               </>
@@ -1437,12 +1428,49 @@ export default function Storefront({
                   </button>
                 </div>
                 <p className="demo-notice">
-                  OTP sign-in will be available when an SMS provider is configured. No demo session
-                  grants access to customer or admin data.
+                  {live
+                    ? 'Orders placed on this device stay in this browser. Use Contact if you need help with an earlier order.'
+                    : 'No account is created in this demonstration, and nothing here opens the admin dashboard.'}
                 </p>
+                {live && (
+                  <p>
+                    <a href="/contact">Contact the store</a>
+                  </p>
+                )}
               </>
             )}
-            {panel === 'retailer' && (
+            {panel === 'retailer' && live && (
+              <>
+                <span className="eyebrow">YOUR PARTNER IN GROWTH</span>
+                <h2>Wholesale for shops in Anantnag.</h2>
+                <div className="benefit-list">
+                  <p>
+                    <Check /> Bulk prices on larger quantities
+                  </p>
+                  <p>
+                    <Check /> GST invoices for registered businesses
+                  </p>
+                  <p>
+                    <Check /> Repeat orders for kirana shops we deliver to
+                  </p>
+                </div>
+                <p>
+                  Tell us your shop name and what you want to reorder. We confirm the price before
+                  you pay.
+                </p>
+                <div className="account-options">
+                  {support && (
+                    <a href={support.href}>
+                      <Phone /> Call {support.display} <ChevronRight />
+                    </a>
+                  )}
+                  <a href="/contact">
+                    <ArrowUpRight /> Contact the store <ChevronRight />
+                  </a>
+                </div>
+              </>
+            )}
+            {panel === 'retailer' && !live && (
               <>
                 <span className="eyebrow">YOUR PARTNER IN GROWTH</span>
                 <h2>Big savings for your small business.</h2>

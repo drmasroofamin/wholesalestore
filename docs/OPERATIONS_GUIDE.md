@@ -21,9 +21,9 @@ Work through this list. For each item, “Admin screen” means the page at `/ad
 | Store name (default “zebastore”), the tagline “ROOTED IN GOODNESS”, and the wheat mark | Header and footer in `components/storefront.tsx`. The name comes from `liveSettings().name` when the server is fully configured, otherwise `STORE_NAME`, otherwise “zebastore”. | Set `STORE_NAME`. The tagline and wheat mark stay in that file. There is no brand screen that publishes a new name. |
 | Browser title, description and Open Graph tags                      | `app/layout.tsx`                                                                               | The title and site name follow the store name above. Edit the description in that file.                         |
 | Home-page headline, announcement bar, and the three trust lines      | `components/storefront.tsx`                                                                    | Edit the text in that file. The Hindi headline is the only translated headline.                                 |
-| Phone number in the footer, `+91 194 245 0000`                       | `components/storefront.tsx` footer                                                             | Replace this sample number with your real support line.                                                         |
+| Phone number in the footer                                           | `STORE_PHONE`, passed into the footer from the server                                          | Set the real support number. The site does not render a sample phone.                                           |
 | App icon and install name                                            | `public/icon.svg`, `public/icon-192.png`, `public/icon-512.png`, `app/manifest.ts`             | Replace the icon files. The manifest name follows the store name above.                                         |
-| Homepage photo                                                       | `public/harvest.webp`                                                                          | Replace the file and keep the credit in `public/products/CREDITS.md`.                                           |
+| Homepage photo                                                       | `public/harvest.webp`                                                                          | Replace the file and keep the credit on `/credits`.                                                             |
 | Admin “Store name”                                                   | `/admin` → **Settings**                                                                        | This box starts as the configured store name, or “zebastore”. **Save demo preferences** only shows a message. It does not rename the shop. |
 
 The admin header always says “Merchant Admin / Demo workspace”. That label is hardcoded in `app/admin/page.tsx`. It is not a signed-in user.
@@ -168,7 +168,7 @@ The only code that works is `WELCOME10`: 10% off, capped at ₹100. It is checke
 
 ### 12. Photos
 
-Product photos live in `public/products/*.webp` and are named from `lib/catalog.ts`. The homepage photo is `public/harvest.webp`. Sources and licences are in `public/products/CREDITS.md`. The service worker lists those files in `public/sw.js` (cache name `grain-good-v2`). If you replace a photo, keep the same path or update the catalogue, the category image, the service-worker list, and the credits.
+Product photos live in `public/products/*.webp` and are named from `lib/catalog.ts`. The homepage photo is `public/harvest.webp`. Sources and licences are on `/credits`. The service worker lists those files in `public/sw.js` (cache name `grain-good-v3`). If you replace a photo, keep the same path or update the catalogue, the category image, the service-worker list, and the credits.
 
 ---
 
@@ -245,6 +245,6 @@ These are missing or only pretend to work. They need product work, not a setting
 5. **Stock and prices the merchant edits in admin do not affect shoppers.** Two customers are not protected from overselling.
 6. **Wholesale and credit are advertising.** The business form does not grant bulk prices, GST invoices, or a khata limit.
 7. **Hindi is partial.** Most of the shop, including errors and checkout, is English only.
-8. **Policies, phone number, and tax identity are samples.** Do not send customers to `+91 194 245 0000` or the current `/policies` page once you take real orders.
+8. **Tax identity is still the merchant’s to confirm.** The public phone comes from `STORE_PHONE`. Policies live at `/about`, `/contact`, `/terms`, `/privacy`, `/refund-policy`, `/shipping-policy` and `/policies`.
 9. **No invoice, refund, return, review, or notification.** The receipt download is a text file. There is no SMS or email when a status would change.
 10. **Admin is public** and linked from the shop. Treat everything on it as sample data until it requires a login and reads the database.
