@@ -14,7 +14,8 @@
     "db:validate": "node scripts/check-schema.cjs",
     "db:migrate": "prisma migrate deploy",
     "test:e2e": "playwright test",
-    "test:all": "npm test && npm run test:e2e"
+    "test:all": "npm test && npm run test:e2e",
+    "dev:clean": "node scripts/clean-dev.cjs && npm run dev"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",

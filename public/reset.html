@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Refresh Grain &amp; Good</title>
+    <style>
+      body {
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        background: #f9f8f3;
+        color: #294e3c;
+        max-width: 560px;
+        margin: 12vh auto;
+        padding: 24px;
+      }
+      h1 {
+        font-size: 28px;
+      }
+      a {
+        color: inherit;
+      }
+      #status {
+        padding: 18px;
+        background: #edf1e5;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Refreshing the app</h1>
+    <p>This clears Grain &amp; Good’s offline files. Your cart and favourites stay saved.</p>
+    <p id="status" role="status">Removing old app files…</p>
+    <p><a id="return" href="/" hidden>Return to the store</a></p>
+    <script>
+      // This page intentionally has no React, Next.js chunks, or other dependencies:
+      // it must work even when a stale chunk prevents React from mounting.
+      (async function () {
+        try {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            const ours = registrations.filter(function (registration) {
+              return [registration.active, registration.waiting, registration.installing].some(
+                function (worker) {
+                  return worker && new URL(worker.scriptURL).pathname === '/sw.js';
+                },
+              );
+            });
+            const results = await Promise.all(
+              ours.map(function (registration) {
+                return registration.unregister();
+              }),
+            );
+            if (
+              results.some(function (result) {
+                return !result;
+              })
+            )
+              throw new Error('The old offline worker could not be removed.');
+          }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(
+              keys
+                .filter(function (key) {
+                  return key.startsWith('grain-good-');
+                })
+                .map(function (key) {
+                  return caches.delete(key);
+                }),
+            );
+          }
+          document.getElementById('status').textContent =
+            'Old app files removed. Click below to open a fresh copy of the store.';
+        } catch (error) {
+          document.getElementById('status').textContent =
+            'Automatic cleanup could not finish. In browser settings, remove service workers and cached files for this localhost site, then reopen the store.';
+        } finally {
+          document.getElementById('return').hidden = false;
+        }
+      })();
+    </script>
+  </body>
+</html>

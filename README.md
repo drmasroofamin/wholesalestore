@@ -145,3 +145,5 @@ node -e "for (const p of ['.next', '.next-dev']) require('node:fs').rmSync(p, { 
 ```
 
 If the page crashes before it can remove an old worker, open the browser developer tools → Application → Service Workers → Unregister for this local site, then hard-refresh. Do not delete `app/page.tsx`; it is the rendering boundary, not proof that the component import is incorrect.
+
+If the error occurs before the storefront mounts, its automatic cache cleanup cannot run. Open `/reset.html` on the **same localhost address and port** as the failing app, wait for confirmation, then use “Return to the store.” This standalone recovery page needs no React or Next.js JavaScript, removes only this app's service workers/offline caches and keeps saved carts/favourites. For a server-side stale development build, stop the server and use `npm run dev:clean` to regenerate `.next-dev`.
