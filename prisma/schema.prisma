@@ -44,6 +44,8 @@ model User {
  role Role @default(CUSTOMER)
  blocked Boolean @default(false)
  createdAt DateTime @default(now())
+ phoneVerifiedAt DateTime?
+ sessions CustomerSession[]
  retailer Retailer?
  addresses Address[]
  orders Order[]
@@ -75,6 +77,10 @@ model Address {
  pincode String
  latitude Float?
  longitude Float?
+ isDefault Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([userId,isDefault])
 }
 model Category {
  id String @id @default(cuid())
@@ -174,6 +180,7 @@ model Order {
  @@index([createdAt])
  @@index([status,createdAt])
  @@index([phone,createdAt])
+ @@index([userId,createdAt])
  @@index([paymentStatus,expiresAt])
 }
 model OrderItem {
@@ -334,4 +341,15 @@ model StandingOrder {
  nextRunAt DateTime
  active Boolean @default(true)
  @@index([active,nextRunAt])
+}
+
+model CustomerSession {
+ id String @id @default(cuid())
+ userId String
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ tokenHash String @unique
+ expiresAt DateTime
+ createdAt DateTime @default(now())
+ @@index([userId])
+ @@index([expiresAt])
 }

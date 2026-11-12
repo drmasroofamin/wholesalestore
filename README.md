@@ -35,7 +35,7 @@ The first live workflow includes:
 
 - Persistent COD and Razorpay orders with server-authoritative prices, GST-inclusive integer-paise totals and zone-specific delivery fees.
 - Transactional stock reservation, delivery-slot capacity/cut-off checks, cross-replica idempotency and rejection of changed payloads under the same key.
-- Guest checkout and private, expiring receipt tokens; receipt APIs do not expose customer phone/address. Phone numbers are not yet OTP-verified; confirm guest orders before fulfilment.
+- Guest checkout and private, expiring receipt tokens; receipt APIs do not expose customer phone/address. Optional Twilio Verify customer accounts add verified phone login, saved names/addresses and private purchase history; confirm unverified guest orders before fulfilment.
 - Password-hash-based merchant sign-in, signed HttpOnly SameSite cookies, rate limiting, protected order/inventory/zone endpoints and audit records.
 - Persistent admin status changes, explicit COD collection confirmation, cancellation/expiry release, stock editing and delivery-zone/slot controls.
 - Server-created Razorpay orders, signed browser verification, amount/currency checks, idempotent signed webhooks and monotonic captured/failed/refunded state handling.
@@ -61,6 +61,7 @@ Browser tests need a running server and Chromium:
 ```sh
 npm run test:e2e
 npm run test:e2e:live
+npm run test:e2e:customer
 ```
 
 Demo browser tests use `TEST_BASE_URL` (default local port 3000). The live browser suite needs `LIVE_TEST_BASE_URL` and `TEST_ADMIN_PASSWORD_FILE` for an isolated verification deployment. It places and then cancels verification COD orders. Remote execution requires explicit `ALLOW_STAGING_E2E=true`; do not run it on a customer production store. Set `CHROMIUM_PATH` when your installed Chromium differs from `/usr/bin/chromium`.
@@ -117,7 +118,7 @@ HTML reads the server's current mode at request time; no production database cal
 
 ## Remaining scope
 
-This first live workflow is not the complete four-phase wholesale platform: OTP customer accounts, multi-role staff, full product/variant CRUD, retailer KYC/custom pricing/credit, wallets, standing orders, notifications, driver assignment, tax-invoice PDFs and automated returns still need implementation/integration. Hindi content is partial and an accessibility audit remains necessary. Merchant identity, policies, real stock/tax values, live gateway activation, backups, monitoring and staging verification remain launch prerequisites.
+This first live workflow is not the complete four-phase wholesale platform: multi-role staff, full product/variant CRUD, retailer KYC/custom pricing/credit, wallets, standing orders, notifications, driver assignment, tax-invoice PDFs and automated returns still need implementation/integration. Hindi content is partial and an accessibility audit remains necessary. Merchant identity, policies, real stock/tax values, live gateway activation, backups, monitoring and staging verification remain launch prerequisites.
 
 ## Recovering local development
 
@@ -149,3 +150,57 @@ Run `npm run doctor` from the project folder. It reads the same environment file
 - `ENOTFOUND`: verify the connection hostname and network access.
 
 Restart `npm run dev` after changing local settings. A failed store refresh never means the order is free: unavailable totals are shown explicitly and submission remains disabled. Saved cart items are retained for customer review rather than silently removed when a product is missing from a refreshed catalogue.
+
+### Customer accounts and SMS OTP
+
+The quantity popup lets customers select packs, then choose **OK, go to cart**.
+Customer accounts save verified phone numbers, names and delivery addresses in PostgreSQL.
+Returning customers sign in with phone + OTP and can see their own purchases on any device.
+Sessions last 30 days and use an HttpOnly cookie; signing out revokes the server session.
+New customers save their name and first address after verification. They can add, edit,
+remove and choose saved addresses. Orders keep their original address snapshot.
+
+Recommended SMS provider: [Twilio Verify](https://www.twilio.com/docs/verify).
+Create a Twilio account and Verify service, fund the account, and enable SMS to India
+in Verify geographic permissions. Keep the Verify service code length at six digits. Confirm India delivery/registration requirements and
+pricing with Twilio for your account; trial accounts restrict recipient numbers.
+Set these **server-side** variables in Vercel Environment Variables and your PC's `.env.local`:
+
+```dotenv
+OTP_PROVIDER=twilio
+TWILIO_ACCOUNT_SID=<your Account SID>
+TWILIO_AUTH_TOKEN=<your Auth Token>
+TWILIO_VERIFY_SERVICE_SID=<your Verify Service SID>
+CUSTOMER_ACCOUNTS_ENABLED=true
+```
+
+Never put these values in `NEXT_PUBLIC_*`, Git, screenshots or chat. Use the same PostgreSQL,
+Redis and `SESSION_SECRET` across replicas. Apply `npm run db:migrate` before running locally
+(the migration command reads `.env`, so provide DATABASE_URL there or in your shell).
+Vercel already runs migrations during builds. Redeploy Vercel or restart your PC server
+after changing variables. Set APP_ORIGIN to the exact URL used in each environment.
+
+Keep `CUSTOMER_ACCOUNTS_ENABLED=false` until SMS is configured and tested; the store will
+continue its existing guest checkout. Enabling the flag requires verified login and a
+saved address for checkout. Missing provider configuration fails closed, never accepts
+made-up OTPs, and does not silently create unverified accounts. OTPs expire after five
+minutes, allow at most five attempts and have resend/rate limits enforced by shared Redis.
+Real SMS delivery and charges require testing with your own provider account; automated
+tests mock provider responses and send no SMS.
+
+Only orders placed while signed in appear automatically in purchase history. A previous
+guest order on the same browser may be linked after login only when its private receipt
+is valid and its phone matches the verified customer. Other old guest orders are not
+exposed by searching a phone number. Existing orders, stock and carts are not deleted
+by the account migration. Browser carts remain on that browser; addresses and purchase
+history belong to the account. Customer APIs are never cached publicly.
+
+Before enabling accounts for customers, verify: real OTP arrival and incorrect/expired
+code rejection, first-time profile save, sign out then sign back in, a COD order in history,
+a second phone seeing only its own orders, and saved-address checkout. Test Razorpay
+separately with the appropriate test/live keys.
+
+The account browser suite requires `CUSTOMER_TEST_BASE_URL` pointing to an isolated localhost
+server with accounts enabled and `DATABASE_URL` pointing to its migrated test database
+(name must contain `test`). It mocks only SMS delivery, uses real database sessions and
+profile/order APIs, and places then cancels test COD orders. It sends no real SMS.

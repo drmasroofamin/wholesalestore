@@ -55,7 +55,12 @@ function inputHash(data: OrderInput) {
     )
     .digest('hex');
 }
-export async function placeOrder(data: OrderInput, key: string, db: PrismaClient = database()) {
+export async function placeOrder(
+  data: OrderInput,
+  key: string,
+  db: PrismaClient = database(),
+  userId: string | null = null,
+) {
   const requestHash = inputHash(data);
   return db.$transaction(
     async (tx) => {
@@ -66,7 +71,7 @@ export async function placeOrder(data: OrderInput, key: string, db: PrismaClient
         include: detail,
       });
       if (existing) {
-        if (existing.requestHash !== requestHash)
+        if (existing.userId !== userId || existing.requestHash !== requestHash)
           throw new StoreError('This checkout key belongs to a different order', 409);
         if (existing.status === 'CANCELLED')
           throw new StoreError('This reservation has ended. Please place a new order.', 410);
@@ -149,6 +154,7 @@ export async function placeOrder(data: OrderInput, key: string, db: PrismaClient
           id: 'GG-' + randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase(),
           idempotencyKey: key,
           requestHash,
+          userId,
           customerName: data.name,
           phone: data.phone,
           address: data.address,

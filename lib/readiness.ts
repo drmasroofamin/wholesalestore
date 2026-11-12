@@ -1,5 +1,7 @@
 import { liveMode, liveSettings } from './live-config';
 import { database } from './db';
+import { customerAccountsEnabled } from './customer-auth';
+import { otpConfigured } from './otp';
 import { redis } from './security';
 export const REQUIRED_STORE_VARIABLES = [
   'APP_ORIGIN',
@@ -61,9 +63,12 @@ export async function storeReadiness() {
       }
     })(),
   ]);
+  const otp: ReadinessCheck = customerAccountsEnabled()
+    ? { ok: otpConfigured(), code: otpConfigured() ? 'CONFIGURED' : 'NOT_CONFIGURED' }
+    : { ok: true, code: 'DISABLED' };
   return {
     mode: liveMode() ? 'live' : 'demo',
-    ready: configuration.ok && postgres.ok && cache.ok,
-    checks: { configuration, database: postgres, redis: cache },
+    ready: configuration.ok && postgres.ok && cache.ok && otp.ok,
+    checks: { configuration, database: postgres, redis: cache, customerOtp: otp },
   };
 }

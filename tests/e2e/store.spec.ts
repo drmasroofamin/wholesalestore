@@ -7,6 +7,8 @@ test('search, favourites, cart and demo checkout', async ({ page }) => {
   await expect(page.locator('.product-card')).toHaveCount(1);
   await page.getByRole('button', { name: 'Save Premium Basmati Rice', exact: true }).click();
   await page.getByRole('button', { name: 'ADD', exact: true }).click();
+  await page.getByRole('button', { name: 'OK, go to cart' }).click();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
   await search.fill('');
   await expect(page.locator('.product-card')).toHaveCount(9);
   await page.getByRole('button', { name: /My cart/ }).click();
@@ -36,6 +38,8 @@ test('glucose biscuit is listed at five rupees and can be added to the cart', as
     'Free delivery on orders of ₹500 or more',
   );
   await page.getByRole('button', { name: 'ADD', exact: true }).click();
+  await page.getByRole('button', { name: 'OK, go to cart' }).click();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('button', { name: /My cart/ }).click();
   await expect(page.getByRole('dialog')).toContainText('Glucose Biscuit');
   await expect(page.getByRole('dialog')).toContainText('₹30');
@@ -102,7 +106,36 @@ test('192210 can be selected as the delivery location without a browser format e
     .first()
     .getByRole('button', { name: 'ADD', exact: true })
     .click();
+  await page.getByRole('button', { name: 'OK, go to cart' }).click();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('button', { name: /My cart/ }).click();
   await page.getByRole('button', { name: 'Continue to checkout' }).click();
   await expect(page.getByLabel('Pincode', { exact: true })).toHaveValue('192210');
+});
+
+test('quantity is only saved on OK and opens the cart with the selected number', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('textbox', { name: 'Search products' }).fill('Basmati');
+  await page.getByRole('button', { name: 'ADD', exact: true }).click();
+  await page.getByRole('button', { name: 'Increase quantity', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gg-cart') || '{}'))).toEqual(
+    {},
+  );
+  await page.getByRole('button', { name: 'ADD', exact: true }).click();
+  await page.getByRole('button', { name: 'Increase quantity', exact: true }).click();
+  await page.getByRole('button', { name: 'Increase quantity', exact: true }).click();
+  await page.getByRole('button', { name: 'Decrease quantity', exact: true }).click();
+  await page.getByRole('button', { name: 'OK, go to cart' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Your cart');
+  await expect(page.locator('.cart-item .stepper')).toContainText('2');
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('gg-cart') || '{}').basmati),
+  ).toBe(2);
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+  await page.reload();
+  await page.getByRole('button', { name: /My cart/ }).click();
+  await expect(page.locator('.cart-item .stepper')).toContainText('2');
 });

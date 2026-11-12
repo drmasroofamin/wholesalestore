@@ -178,3 +178,50 @@ test('anantnag zone migration inserts each district pincode once and keeps admin
     await db.close();
   }
 });
+
+test('customer-account migration keeps existing customer and address data and enforces one default', async () => {
+  const db = new PGlite();
+  try {
+    const names = (await readdir('prisma/migrations')).filter((n) => /^\d/.test(n)).sort();
+    for (const name of names.filter((n) => n < '202611120004_customer_accounts'))
+      await db.exec(await readFile(`prisma/migrations/${name}/migration.sql`, 'utf8'));
+    await db.exec(
+      `INSERT INTO "User" (id,phone,name) VALUES ('existing-customer','9876543210','Existing Customer'); INSERT INTO "Address" (id,"userId",line,pincode) VALUES ('old-address','existing-customer','Existing house in Anantnag','192210'); UPDATE "ProductVariant" SET stock=17 WHERE id='biscuit-default'`,
+    );
+    await db.exec(
+      await readFile('prisma/migrations/202611120004_customer_accounts/migration.sql', 'utf8'),
+    );
+    const result = await db.query<{
+      name: string;
+      phoneVerifiedAt: null;
+      line: string;
+      pincode: string;
+    }>(
+      `SELECT u.name,u."phoneVerifiedAt",a.line,a.pincode FROM "User" u JOIN "Address" a ON a."userId"=u.id WHERE u.id='existing-customer'`,
+    );
+    assert.deepEqual(result.rows, [
+      {
+        name: 'Existing Customer',
+        phoneVerifiedAt: null,
+        line: 'Existing house in Anantnag',
+        pincode: '192210',
+      },
+    ]);
+    assert.equal(
+      (
+        await db.query<{ stock: number }>(
+          `SELECT stock FROM "ProductVariant" WHERE id='biscuit-default'`,
+        )
+      ).rows[0].stock,
+      17,
+    );
+    await db.exec(`UPDATE "Address" SET "isDefault"=true WHERE id='old-address'`);
+    await assert.rejects(() =>
+      db.exec(
+        `INSERT INTO "Address" (id,"userId",line,pincode,"isDefault") VALUES ('second-default','existing-customer','Another test house','192210',true)`,
+      ),
+    );
+  } finally {
+    await db.close();
+  }
+});

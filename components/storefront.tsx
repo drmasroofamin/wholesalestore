@@ -1,5 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CustomerAccount, customerApi } from './customer-account';
+import type { CustomerProfile } from '@/lib/customer-types';
 import { configureOfflineCatalogue } from '@/lib/offline';
 import { PINCODE_PATTERN, PINCODE_HINT } from '@/lib/pincode';
 import { loadRazorpay } from '@/lib/razorpay-browser';
@@ -53,12 +55,14 @@ type StoreConfig = {
 };
 export default function Storefront({
   live = false,
+  accountsEnabled = false,
   name = 'zebastore',
   phone = '',
   email = '',
   address = '',
 }: {
   live?: boolean;
+  accountsEnabled?: boolean;
   name?: string;
   phone?: string;
   email?: string;
@@ -73,7 +77,7 @@ export default function Storefront({
     [cart, setCart] = useState<Cart>({}),
     [ready, setReady] = useState(false),
     [panel, setPanel] = useState<
-      'cart' | 'checkout' | 'account' | 'retailer' | 'orders' | 'location' | null
+      'quantity' | 'cart' | 'checkout' | 'account' | 'retailer' | 'orders' | 'location' | null
     >(null),
     [detail, setDetail] = useState<Product | null>(null),
     [wish, setWish] = useState<string[]>([]),
@@ -88,6 +92,57 @@ export default function Storefront({
     [payment, setPayment] = useState('COD'),
     [location, setLocation] = useState(live ? 'Choose delivery pincode' : 'Srinagar, 190001'),
     [pack, setPack] = useState('all');
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null),
+    [customerLoading, setCustomerLoading] = useState(accountsEnabled),
+    [customerError, setCustomerError] = useState(''),
+    [selectedAddress, setSelectedAddress] = useState(''),
+    [accountCheckout, setAccountCheckout] = useState(false);
+  const [quantityProduct, setQuantityProduct] = useState<Product | null>(null),
+    [quantity, setQuantity] = useState(1);
+  const currentAddress =
+    customer?.addresses.find((a) => a.id === selectedAddress) || customer?.addresses[0];
+  useEffect(() => {
+    if (!accountsEnabled) return;
+    let active = true;
+    customerApi('session')
+      .then((data) => {
+        if (active) setCustomer(data.customer);
+      })
+      .catch((e) => {
+        if (active) setCustomerError(e.message);
+      })
+      .finally(() => {
+        if (active) setCustomerLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [accountsEnabled]);
+  useEffect(() => {
+    if (currentAddress) setCheckoutPin(currentAddress.pincode);
+  }, [currentAddress?.pincode]);
+  function updateCustomer(value: CustomerProfile | null) {
+    setCustomer(value);
+    setCustomerError('');
+    setSelectedAddress(
+      value?.addresses.find((a) => a.isDefault)?.id || value?.addresses[0]?.id || '',
+    );
+    setOrder(null);
+  }
+  function beginCheckout() {
+    if (accountsEnabled && (customerLoading || !customer || customer.needsProfile)) {
+      setAccountCheckout(true);
+      setPanel('account');
+      return;
+    }
+    setPanel('checkout');
+  }
+  function chooseQuantity(p: Product) {
+    setQuantityProduct(p);
+    setQuantity(Math.min(cart[p.id] || 1, p.stock, 500));
+    setDetail(null);
+    setPanel('quantity');
+  }
   const [slotsLoading, setSlotsLoading] = useState(live),
     [selectedSlot, setSelectedSlot] = useState(live ? '' : 'Today, 4 PM – 7 PM');
   const loadStore = useCallback(
@@ -394,14 +449,19 @@ export default function Storefront({
       setMessage('Store information is unavailable. Please refresh before ordering.');
       return;
     }
+    if (accountsEnabled && (!customer || customer.needsProfile || !currentAddress)) {
+      beginCheckout();
+      return;
+    }
     setBusy(true);
     const form = new FormData(e.currentTarget);
     const body = {
       items: Object.entries(cart).map(([id, quantity]) => ({ id, quantity })),
-      name: form.get('name'),
-      phone: form.get('phone'),
-      address: form.get('address'),
-      pincode: form.get('pincode'),
+      name: accountsEnabled ? customer?.name : form.get('name'),
+      phone: accountsEnabled ? customer?.phone : form.get('phone'),
+      address: accountsEnabled ? currentAddress?.line : form.get('address'),
+      pincode: accountsEnabled ? currentAddress?.pincode : form.get('pincode'),
+      ...(accountsEnabled ? { addressId: currentAddress?.id } : {}),
       slot: form.get('slot'),
       payment,
       coupon: applied,
@@ -444,8 +504,8 @@ export default function Storefront({
       setBusy(false);
     }
   }
-  const stepper = (p: Product) =>
-    cart[p.id] ? (
+  const stepper = (p: Product, inCart = false) =>
+    cart[p.id] && inCart ? (
       <div className="stepper">
         <button aria-label={`Remove one ${p.name}`} onClick={() => add(p.id, -1)}>
           <Minus size={14} />
@@ -459,13 +519,13 @@ export default function Storefront({
       <button
         className={'add-button' + (p.stock <= 0 ? ' out' : '')}
         disabled={p.stock <= 0}
-        onClick={() => add(p.id)}
+        onClick={() => chooseQuantity(p)}
       >
         {p.stock <= 0 ? (
           'Out of stock'
         ) : (
           <>
-            ADD <Plus size={15} />
+            {cart[p.id] ? `Edit (${cart[p.id]})` : 'ADD'} <Plus size={15} />
           </>
         )}
       </button>
@@ -526,7 +586,10 @@ export default function Storefront({
           <button
             aria-label="Account"
             className="header-action account"
-            onClick={() => setPanel('account')}
+            onClick={() => {
+              setAccountCheckout(false);
+              setPanel('account');
+            }}
           >
             <User size={21} />
             <span>Account</span>
@@ -950,7 +1013,10 @@ export default function Storefront({
         phone={store?.phone || phone}
         email={email}
         address={address}
-        onOrders={() => setPanel('orders')}
+        onOrders={() => {
+          setAccountCheckout(false);
+          setPanel(accountsEnabled ? 'account' : 'orders');
+        }}
       />
       {count > 0 && (
         <button className="mobile-cart" onClick={() => setPanel('cart')}>
@@ -1012,6 +1078,72 @@ export default function Storefront({
                 <p className="muted">Store in a cool, dry place. GST included.</p>
               </div>
             )}
+            {panel === 'quantity' && quantityProduct && (
+              <>
+                <span className="eyebrow">CHOOSE YOUR QUANTITY</span>
+                <h2>{quantityProduct.name}</h2>
+                <p>
+                  {quantityProduct.pack} · {money(quantityProduct.price)} each
+                </p>
+                <div className="quantity-picker">
+                  <button
+                    className="secondary"
+                    aria-label="Decrease quantity"
+                    disabled={quantity <= 1}
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  >
+                    <Minus />
+                  </button>
+                  <label>
+                    Quantity
+                    <input
+                      type="number"
+                      min={1}
+                      max={Math.min(quantityProduct.stock, 500)}
+                      value={quantity}
+                      onChange={(e) =>
+                        setQuantity(
+                          Math.min(
+                            Math.min(quantityProduct.stock, 500),
+                            Math.max(1, Number(e.target.value) || 1),
+                          ),
+                        )
+                      }
+                    />
+                  </label>
+                  <button
+                    className="secondary"
+                    aria-label="Increase quantity"
+                    disabled={quantity >= Math.min(quantityProduct.stock, 500)}
+                    onClick={() =>
+                      setQuantity((q) => Math.min(Math.min(quantityProduct.stock, 500), q + 1))
+                    }
+                  >
+                    <Plus />
+                  </button>
+                </div>
+                <p>
+                  Total: <strong>{money(quantityProduct.price * quantity)}</strong>
+                </p>
+                <button
+                  className="primary full"
+                  disabled={
+                    !Number.isInteger(quantity) ||
+                    quantity < 1 ||
+                    quantity > Math.min(quantityProduct.stock, 500)
+                  }
+                  onClick={() => {
+                    setCart((c) => ({ ...c, [quantityProduct.id]: quantity }));
+                    setPanel('cart');
+                  }}
+                >
+                  OK, go to cart <ArrowRight size={17} />
+                </button>
+                <button className="secondary full" onClick={() => setPanel(null)}>
+                  Cancel
+                </button>
+              </>
+            )}
             {panel === 'cart' && (
               <>
                 <span className="eyebrow">A BASKET OF GOODNESS</span>
@@ -1037,7 +1169,7 @@ export default function Storefront({
                               <small>{p.pack}</small>
                               <b>{money(p.price * cart[p.id])}</b>
                             </div>
-                            {stepper(p)}
+                            {stepper(p, true)}
                           </div>
                         ))}
                     </div>
@@ -1111,7 +1243,7 @@ export default function Storefront({
                         <small>Includes {money(summary.tax)} GST</small>
                       </div>
                     )}
-                    <button className="primary full" onClick={() => setPanel('checkout')}>
+                    <button className="primary full" onClick={beginCheckout}>
                       Continue to checkout <ArrowRight size={17} />
                     </button>
                   </>
@@ -1133,7 +1265,7 @@ export default function Storefront({
                 )}
               </>
             )}
-            {panel === 'checkout' && (
+            {panel === 'checkout' && (!accountsEnabled || (customer && !customer.needsProfile)) && (
               <>
                 <span className="eyebrow">ONE LAST STEP</span>
                 <h2>Fresh essentials, on their way.</h2>
@@ -1142,12 +1274,45 @@ export default function Storefront({
                     ? 'Your order will be saved with the store. Please check your phone number, address and delivery slot.'
                     : 'Demo checkout. No payment is collected and no delivery is scheduled.'}
                 </p>
-                <form onSubmit={checkout} className="form">
+                {accountsEnabled && (
+                  <>
+                    <label className="saved-address-select">
+                      Deliver to
+                      <select
+                        aria-label="Saved delivery address"
+                        value={currentAddress?.id || ''}
+                        onChange={(e) => setSelectedAddress(e.target.value)}
+                      >
+                        {customer?.addresses.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.label}: {a.line} · {a.pincode}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        setAccountCheckout(true);
+                        setPanel('account');
+                      }}
+                    >
+                      Manage saved details
+                    </button>
+                  </>
+                )}
+                <form
+                  onSubmit={checkout}
+                  className="form"
+                  key={accountsEnabled ? currentAddress?.id : 'guest'}
+                >
                   <div className="form-row">
                     <label>
                       Your name
                       <input
                         name="name"
+                        defaultValue={accountsEnabled ? customer?.name : undefined}
+                        readOnly={accountsEnabled}
                         required
                         minLength={2}
                         maxLength={100}
@@ -1159,6 +1324,8 @@ export default function Storefront({
                       Mobile number
                       <input
                         name="phone"
+                        defaultValue={accountsEnabled ? customer?.phone : undefined}
+                        readOnly={accountsEnabled}
                         type="tel"
                         pattern="[6-9][0-9]{9}"
                         required
@@ -1167,10 +1334,13 @@ export default function Storefront({
                       />
                     </label>
                   </div>
-                  <label>
+                  <label htmlFor="checkout-address">
                     Delivery address
                     <textarea
+                      id="checkout-address"
                       name="address"
+                      defaultValue={accountsEnabled ? currentAddress?.line : undefined}
+                      readOnly={accountsEnabled}
                       required
                       minLength={10}
                       maxLength={500}
@@ -1183,6 +1353,7 @@ export default function Storefront({
                       Pincode
                       <input
                         name="pincode"
+                        readOnly={accountsEnabled}
                         required
                         pattern={PINCODE_PATTERN}
                         title={PINCODE_HINT}
@@ -1190,7 +1361,9 @@ export default function Storefront({
                         autoComplete="postal-code"
                         maxLength={6}
                         defaultValue={
-                          location.match(/[1-9][0-9]{5}/)?.[0] || (live ? '' : '190001')
+                          (accountsEnabled ? currentAddress?.pincode : undefined) ||
+                          location.match(/[1-9][0-9]{5}/)?.[0] ||
+                          (live ? '' : '190001')
                         }
                         onChange={(e) => setCheckoutPin(e.target.value)}
                       />
@@ -1395,7 +1568,45 @@ export default function Storefront({
                 </form>
               </>
             )}
-            {panel === 'account' && (
+            {panel === 'account' &&
+              accountsEnabled &&
+              (customerLoading ? (
+                <p role="status">Loading your account…</p>
+              ) : (
+                <>
+                  {customerError && (
+                    <p className="demo-notice" role="alert">
+                      {customerError}
+                    </p>
+                  )}
+                  <CustomerAccount
+                    customer={customer}
+                    onCustomer={updateCustomer}
+                    checkout={accountCheckout}
+                    onContinue={() => setPanel('checkout')}
+                    onOrder={async (receipt) => {
+                      setOrder(receipt);
+                      setPanel('orders');
+                      if (
+                        receipt.method.startsWith('RAZORPAY') &&
+                        receipt.paymentStatus !== 'PAID' &&
+                        receipt.status !== 'CANCELLED'
+                      ) {
+                        try {
+                          const data = await customerApi(
+                            'orders/' + receipt.id + '/payment',
+                            'POST',
+                          );
+                          setOrder({ ...receipt, ...data });
+                        } catch (e) {
+                          setMessage(e instanceof Error ? e.message : 'Unable to prepare payment');
+                        }
+                      }
+                    }}
+                  />
+                </>
+              ))}
+            {panel === 'account' && !accountsEnabled && (
               <>
                 <User size={30} />
                 <h2>Welcome to your neighbourhood.</h2>
@@ -1531,6 +1742,17 @@ export default function Storefront({
             )}
             {panel === 'orders' && (
               <>
+                {accountsEnabled && (
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      setAccountCheckout(false);
+                      setPanel('account');
+                    }}
+                  >
+                    All purchases & saved addresses
+                  </button>
+                )}
                 {order ? (
                   <>
                     <CheckCircle2 size={42} className="success" />

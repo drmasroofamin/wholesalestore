@@ -29,6 +29,7 @@ export default function Privacy() {
         <li>The items, quantities and total of an order</li>
         <li>The delivery slot you choose and the payment method</li>
         <li>A payment reference from Razorpay when you pay online</li>
+        <li>If you use phone sign-in, your verified phone, saved name and delivery addresses</li>
       </ul>
       <p>
         Card numbers, UPI PINs and netbanking passwords are entered on Razorpay’s page. They are not
@@ -45,13 +46,16 @@ export default function Privacy() {
       <p>
         The shop’s hosting, database and Redis providers store the order so it is not lost if a
         server restarts. Razorpay processes online payments. They receive only what is needed for
-        that work. Store staff see orders through a protected admin account.
+        that work. If you use phone sign-in, Twilio Verify receives your phone number to send and
+        check the verification code. Store staff see orders through a protected admin account.
       </p>
       <h2>What stays on your device</h2>
       <p>
         The cart, saved favourites and the latest receipt are stored in this browser. The receipt
         link is private. Do not share it. Clearing this site’s data in the browser removes those
-        local records. It does not delete the order we have already saved.
+        local records. It does not delete the order we have already saved. Phone sign-in uses a
+        secure account cookie that lasts up to 30 days; signing out revokes that session. Saved
+        addresses and purchase history stay in your account across devices.
       </p>
       <h2>How long we keep it</h2>
       <p>

@@ -24,7 +24,7 @@ test('empty delivery slots are explained and refresh recovers without clearing c
   await page.goto('/');
   await page.getByRole('textbox', { name: 'Search products' }).fill('Basmati');
   await page.getByRole('button', { name: 'ADD', exact: true }).click();
-  await page.getByRole('button', { name: /My cart/ }).click();
+  await page.getByRole('button', { name: 'OK, go to cart' }).click();
   await page.getByRole('button', { name: 'Continue to checkout' }).click();
   await expect(page.getByRole('combobox', { name: 'Delivery slot', exact: true })).toBeDisabled();
   await expect(

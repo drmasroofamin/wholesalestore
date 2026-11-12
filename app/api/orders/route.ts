@@ -1,3 +1,5 @@
+import { customerAccountsEnabled, requireCustomer } from '@/lib/customer-auth';
+import { database } from '@/lib/db';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { quote } from '@/lib/rules';
@@ -32,7 +34,23 @@ export async function POST(req: Request) {
           'The store is not accepting new orders yet. Please contact the merchant.',
           503,
         );
-      const data = orderInput.parse(await readJson(req));
+      let data = orderInput.parse(await readJson(req));
+      let userId: string | null = null;
+      if (customerAccountsEnabled()) {
+        const customer = await requireCustomer(req);
+        if (customer.needsProfile)
+          throw new StoreError('Save your name and address before ordering', 409);
+        const address = customer.addresses.find((a) => a.id === data.addressId);
+        if (!address) throw new StoreError('Select one of your saved delivery addresses', 400);
+        userId = customer.id;
+        data = {
+          ...data,
+          name: customer.name,
+          phone: customer.phone,
+          address: address.line,
+          pincode: address.pincode,
+        };
+      }
       const key = z.string().uuid().parse(req.headers.get('Idempotency-Key'));
       if (data.payment !== 'COD' && !onlinePaymentsEnabled())
         throw new StoreError(
@@ -44,7 +62,7 @@ export async function POST(req: Request) {
         !(await rateLimit('checkout:' + createHash('sha256').update(data.phone).digest('hex'), 5))
       )
         throw new StoreError('Too many checkout attempts. Please wait one minute.', 429);
-      const order = await placeOrder(data, key);
+      const order = await placeOrder(data, key, database(), userId);
       const payment = await gatewayOrder(order);
       return Response.json(
         { ...publicOrder(order), payment },

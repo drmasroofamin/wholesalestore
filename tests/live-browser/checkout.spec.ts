@@ -30,7 +30,7 @@ test('saved COD order can be managed in admin and tracked by the customer', asyn
   await shop.getByRole('button', { name: 'Check & save location' }).click();
   await shop.getByRole('textbox', { name: 'Search products' }).fill('Basmati');
   await shop.getByRole('button', { name: 'ADD', exact: true }).click();
-  await shop.getByRole('button', { name: /My cart/ }).click();
+  await shop.getByRole('button', { name: 'OK, go to cart' }).click();
   await shop.getByRole('button', { name: 'Continue to checkout' }).click();
   await shop.getByLabel('Your name').fill('Browser Verification Customer');
   await shop.getByLabel('Mobile number', { exact: true }).fill('9999999999');

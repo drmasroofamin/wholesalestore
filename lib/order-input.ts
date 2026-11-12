@@ -15,6 +15,7 @@ export const orderInput = z
     slot: z.string().min(1).max(100),
     payment: z.enum(['COD', 'UPI', 'Card', 'Netbanking']),
     coupon: z.string().trim().max(30).default(''),
+    addressId: z.string().min(1).max(100).optional(),
     expectedTotal: z.number().int().nonnegative().optional(),
   })
   .refine((d) => new Set(d.items.map((i) => i.id)).size === d.items.length, {
