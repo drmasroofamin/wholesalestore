@@ -1,8 +1,8 @@
-import { liveMode } from '@/lib/live-config';
+import { liveMode, storeName } from '@/lib/live-config';
 export const dynamic = 'force-dynamic';
 export default function Policies() {
   const live = liveMode(),
-    name = process.env.STORE_NAME || 'Grain & Good',
+    name = storeName(),
     phone = process.env.STORE_PHONE,
     address = process.env.STORE_ADDRESS;
   return (

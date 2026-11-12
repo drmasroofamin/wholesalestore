@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { categories, money, products as demoProducts, Product } from '@/lib/catalog';
 import { quote } from '@/lib/rules';
+import { BrandWord } from './brand-word';
 type Cart = Record<string, number>;
 type StoreConfig = {
   live: boolean;
@@ -48,7 +49,13 @@ type StoreConfig = {
   zones: { pincode: string; fee: number; freeAbove: number; codLimit: number }[];
   slots: { id: string; label: string }[];
 };
-export default function Storefront({ live = false }: { live?: boolean }) {
+export default function Storefront({
+  live = false,
+  name = 'zebastore',
+}: {
+  live?: boolean;
+  name?: string;
+}) {
   const [products, setProducts] = useState<Product[]>(live ? [] : demoProducts);
   const [store, setStore] = useState<StoreConfig | null>(null),
     [storeError, setStoreError] = useState(''),
@@ -264,6 +271,7 @@ export default function Storefront({ live = false }: { live?: boolean }) {
     [category, search, sort, onlyWish, wish, pack],
   );
   const scrollShop = () => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' });
+  const brand = store?.name?.trim() || name;
   async function payOnline(receipt: any): Promise<boolean> {
     await loadRazorpay();
     const payment = receipt.payment;
@@ -275,7 +283,7 @@ export default function Storefront({ live = false }: { live?: boolean }) {
         order_id: payment.id,
         amount: payment.amount,
         currency: 'INR',
-        name: store?.name || 'Grain & Good',
+        name: store?.name || name,
         description: 'Order ' + receipt.id,
         theme: { color: '#294e3c' },
         modal: {
@@ -425,12 +433,13 @@ export default function Storefront({ live = false }: { live?: boolean }) {
       </div>
       <header>
         <div className="header-main wrap">
-          <a className="brand" href="/" aria-label="Grain and Good home">
+          <a className="brand" href="/" aria-label={`${brand} home`}>
             <div className="brand-icon">
               <Wheat size={29} />
             </div>
             <div>
-              grain<span>&</span>good<small>ROOTED IN GOODNESS</small>
+              <BrandWord name={brand} />
+              <small>ROOTED IN GOODNESS</small>
             </div>
           </a>
           <button className="location" onClick={() => setPanel('location')}>
@@ -766,7 +775,7 @@ export default function Storefront({ live = false }: { live?: boolean }) {
                 </div>
                 <div className="product-info">
                   <div className="product-topline">
-                    <span>GRAIN & GOOD</span>
+                    <span>{brand.toUpperCase()}</span>
                     <span className="rating">
                       <Star size={11} fill="currentColor" /> {p.rating}
                     </span>
@@ -872,7 +881,8 @@ export default function Storefront({ live = false }: { live?: boolean }) {
           <a className="brand" href="/">
             <Wheat size={30} />
             <div>
-              grain<span>&</span>good<small>GOOD FOOD. GOOD LIVING.</small>
+              <BrandWord name={brand} />
+              <small>GOOD FOOD. GOOD LIVING.</small>
             </div>
           </a>
           <p>
@@ -897,7 +907,9 @@ export default function Storefront({ live = false }: { live?: boolean }) {
           </div>
         </div>
         <div className="wrap footer-bottom">
-          <span>© {new Date().getFullYear()} Grain & Good. Rooted in goodness.</span>
+          <span>
+            © {new Date().getFullYear()} {brand}. Rooted in goodness.
+          </span>
           <span>
             Secure payments <b>UPI</b> <b>VISA</b> <b>RuPay</b> <ShieldCheck size={14} />
           </span>
@@ -949,7 +961,7 @@ export default function Storefront({ live = false }: { live?: boolean }) {
                 <h2>{detail.name}</h2>
                 <p>
                   Carefully selected for its natural flavour and quality. A wholesome addition to
-                  your everyday kitchen, packed fresh by Grain & Good.
+                  your everyday kitchen, packed fresh by {brand}.
                 </p>
                 <p>
                   {detail.pack} · HSN {detail.hsn} · {detail.stock} packs available
@@ -1426,7 +1438,7 @@ export default function Storefront({ live = false }: { live?: boolean }) {
                       onClick={() => {
                         const blob = new Blob(
                           [
-                            `${store?.name || 'GRAIN & GOOD'} — ${order.demo ? 'DEMO ' : ''}RECEIPT\nOrder: ${order.id}\nTotal: ${money(order.total)}\nStatus: ${order.paymentStatus}\nNot a tax invoice.${order.demo ? ' No payment collected.' : ''}`,
+                            `${brand} — ${order.demo ? 'DEMO ' : ''}RECEIPT\nOrder: ${order.id}\nTotal: ${money(order.total)}\nStatus: ${order.paymentStatus}\nNot a tax invoice.${order.demo ? ' No payment collected.' : ''}`,
                           ],
                           { type: 'text/plain' },
                         );

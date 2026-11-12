@@ -1,4 +1,5 @@
 export const liveMode = () => process.env.DEMO_MODE === 'false';
+export const DEFAULT_STORE_NAME = 'zebastore';
 export function liveSettings() {
   const origin = process.env.APP_ORIGIN;
   const name = process.env.STORE_NAME?.trim();
@@ -23,6 +24,14 @@ export function liveSettings() {
     phone,
     district: process.env.STORE_DISTRICT || 'Anantnag district',
   };
+}
+/** Public name. Prefers liveSettings().name when the server is fully configured. */
+export function storeName() {
+  try {
+    return liveSettings().name;
+  } catch {
+    return process.env.STORE_NAME?.trim() || DEFAULT_STORE_NAME;
+  }
 }
 export function onlinePaymentsEnabled() {
   return !!(

@@ -16,7 +16,7 @@ Node.js 24 is supported. Stop older development servers before starting another 
 
 ## 2. Create the hosted services
 
-- In Vercel, import `drmasroofamin/wholesalestore` as a Next.js project. Use Node.js 24, the repository root and the default `npm run build` command. The committed Vercel configuration selects Mumbai (`bom1`).
+- In Vercel, import `drmasroofamin/wholesalestore` as a Next.js project. Use Node.js 24 and the repository root. `vercel.json` builds with `npm run db:migrate && npm run db:seed && npm run build`, using the project’s environment variables (no `.env` file on Vercel). The committed Vercel configuration selects Mumbai (`bom1`).
 - Create a managed PostgreSQL database, for example Neon through Vercel Marketplace. Keep its pooled connection URL for the app and its direct connection URL for migrations. Use the provider's verified TLS configuration.
 - Create a managed Redis instance, for example Upstash. This implementation uses a Redis TCP/TLS URL (`rediss://...`), **not** the Upstash REST URL. Use separate databases/Redis instances for staging and production.
 - Keep the initial deployment paused. `ACCEPT_ORDERS=false` prevents customer orders while you configure and review the store.
@@ -78,7 +78,7 @@ npm run db:seed
 
 Migrations use the direct URL when provided, apply under an advisory lock, and record checksums. Do not modify an applied SQL migration. There is no native Prisma engine download requirement for these commands.
 
-The seed adds eight starter grain SKUs **at zero stock** and preserves existing products, prices and inventory. Prices, descriptions, tax rates, HSN codes and stock are starter data, not verified merchant inventory. Review them before opening orders. Set actual stock in admin. `SEED_SAMPLE_STOCK=true` is for isolated local tests only.
+The seed adds eight starter grain SKUs **at zero stock** when no products exist, then skips later runs so prices and inventory stay as they are. It does not set `SEED_SAMPLE_STOCK`. Prices, descriptions, tax rates, HSN codes and stock are starter data, not verified merchant inventory. Review them before opening orders. Set actual stock in admin. `SEED_SAMPLE_STOCK=true` is for isolated local tests only.
 
 ## 5. Configure your delivery area and inventory
 

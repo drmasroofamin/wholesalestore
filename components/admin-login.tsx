@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { Wheat, ShieldCheck } from 'lucide-react';
-export default function AdminLogin() {
+import { BrandWord } from './brand-word';
+export default function AdminLogin({ name = 'zebastore' }: { name?: string }) {
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   return (
@@ -9,7 +10,7 @@ export default function AdminLogin() {
       <a className="brand" href="/">
         <Wheat />
         <div>
-          grain<span>&</span>good
+          <BrandWord name={name} />
         </div>
       </a>
       <h1 style={{ fontSize: 36 }}>Merchant sign-in</h1>
