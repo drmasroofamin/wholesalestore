@@ -744,6 +744,7 @@ export default function Storefront({
               <option>1 kg</option>
               <option>5 kg</option>
               <option>1 litre</option>
+              <option>1 pack</option>
             </select>
           </div>
           <div className="product-grid">
@@ -769,9 +770,11 @@ export default function Storefront({
                   >
                     <img src={p.image} alt={p.name} loading="lazy" width="260" height="290" />
                   </button>
-                  <span className="savings">
-                    {Math.round(((p.mrp - p.price) / p.mrp) * 100)}% OFF
-                  </span>
+                  {p.mrp > p.price && (
+                    <span className="savings">
+                      {Math.round(((p.mrp - p.price) / p.mrp) * 100)}% OFF
+                    </span>
+                  )}
                 </div>
                 <div className="product-info">
                   <div className="product-topline">
@@ -788,7 +791,8 @@ export default function Storefront({
                   </span>
                   <div className="product-bottom">
                     <div>
-                      <strong>{money(p.price)}</strong> <del>{money(p.mrp)}</del>
+                      <strong>{money(p.price)}</strong>{' '}
+                      {p.mrp > p.price && <del>{money(p.mrp)}</del>}
                       <small>Inclusive of all taxes</small>
                     </div>
                     {stepper(p)}
@@ -967,7 +971,8 @@ export default function Storefront({
                   {detail.pack} · HSN {detail.hsn} · {detail.stock} packs available
                 </p>
                 <h2>
-                  {money(detail.price)} <del>{money(detail.mrp)}</del>
+                  {money(detail.price)}{' '}
+                  {detail.mrp > detail.price && <del>{money(detail.mrp)}</del>}
                 </h2>
                 {stepper(detail)}
                 <p className="muted">Store in a cool, dry place. GST included.</p>

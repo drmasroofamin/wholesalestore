@@ -31,6 +31,14 @@ test('quote recalculates from trusted catalogue and respects stock', () => {
   assert.throws(() => quote([{ id: 'basmati', quantity: 121 }]));
   assert.throws(() => quote([{ id: 'unknown', quantity: 1 }]));
 });
+test('a five-rupee biscuit is quoted and still pays the demo delivery fee under ₹999', () => {
+  const q = quote([{ id: 'biscuit', quantity: 1 }]);
+  assert.equal(q.subtotal, 500);
+  assert.equal(q.discount, 0);
+  assert.equal(q.delivery, 3900);
+  assert.equal(q.total, 4400);
+  assert.equal(q.lines[0].gst, 18);
+});
 test('signatures reject tampering and malformed lengths', () => {
   const body = 'order_1|payment_1',
     signature = createHmac('sha256', 'secret').update(body).digest('hex');

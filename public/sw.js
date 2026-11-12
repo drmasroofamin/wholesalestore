@@ -11,6 +11,7 @@ const ASSETS = [
   '/products/sugar.webp',
   '/products/millet.webp',
   '/products/chana.webp',
+  '/products/biscuit.webp',
 ];
 self.addEventListener('install', (event) =>
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS))),
