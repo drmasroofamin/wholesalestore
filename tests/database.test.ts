@@ -123,3 +123,58 @@ test('biscuit migration fills a seed-shaped row without duplicating tiers', asyn
     await db.close();
   }
 });
+
+test('anantnag zone migration inserts each district pincode once and keeps admin edits', async () => {
+  const db = new PGlite();
+  try {
+    const names = await applyMigrations(db);
+    assert.ok(names.includes('202611120003_anantnag_zones'));
+    const pins = [
+      '192101',
+      '192122',
+      '192124',
+      '192125',
+      '192126',
+      '192129',
+      '192201',
+      '192202',
+      '192210',
+      '192211',
+      '192212',
+      '192221',
+      '192401',
+    ];
+    const zones = await db.query<{
+      pincode: string;
+      fee: number;
+      freeAbove: number;
+      codLimit: number;
+      active: boolean;
+    }>(`SELECT pincode, fee, "freeAbove", "codLimit", active FROM "DeliveryZone" ORDER BY pincode`);
+    assert.deepEqual(
+      zones.rows.map((zone) => zone.pincode),
+      pins,
+    );
+    for (const zone of zones.rows) {
+      assert.equal(zone.fee, 2500);
+      assert.equal(zone.freeAbove, 50000);
+      assert.equal(zone.codLimit, 500000);
+      assert.equal(zone.active, true);
+    }
+    const excluded = await db.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM "DeliveryZone" WHERE pincode IN ('192231', '192232', '192233')`,
+    );
+    assert.equal(excluded.rows[0].count, 0);
+    await db.exec(`UPDATE "DeliveryZone" SET fee = 1, "freeAbove" = 1 WHERE pincode = '192210'`);
+    await db.exec(
+      await readFile('prisma/migrations/202611120003_anantnag_zones/migration.sql', 'utf8'),
+    );
+    const edited = await db.query<{ fee: number; freeAbove: number; count: number }>(
+      `SELECT fee, "freeAbove", (SELECT count(*)::int FROM "DeliveryZone") AS count
+       FROM "DeliveryZone" WHERE pincode = '192210'`,
+    );
+    assert.deepEqual(edited.rows, [{ fee: 1, freeAbove: 1, count: 13 }]);
+  } finally {
+    await db.close();
+  }
+});

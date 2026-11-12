@@ -45,7 +45,7 @@ test('saved COD order can be managed in admin and tracked by the customer', asyn
   const receipt = await result.json();
   expect(result.status(), JSON.stringify(receipt)).toBe(201);
   expect(receipt.demo).toBe(false);
-  expect(receipt.total).toBe(68800);
+  expect(receipt.total).toBe(64900);
   await expect(shop.getByRole('heading', { name: 'Your order is placed!' })).toBeVisible();
   await page.locator('.filter-pills').getByRole('button', { name: 'Orders', exact: true }).click();
   await page.getByRole('textbox', { name: 'Search saved orders' }).fill(receipt.id);

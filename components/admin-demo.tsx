@@ -916,7 +916,7 @@ export default function Admin({ name = 'zebastore' }: { name?: string }) {
                 </label>
                 <label>
                   Free delivery above (₹)
-                  <input type="number" defaultValue="999" min="0" />
+                  <input type="number" defaultValue="500" min="0" />
                 </label>
                 <label>
                   Cash on delivery limit (₹)

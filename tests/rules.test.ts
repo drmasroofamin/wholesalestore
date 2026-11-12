@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { priceFor, creditAllowed, splitTax, quote } from '../lib/rules';
+import {
+  priceFor,
+  creditAllowed,
+  splitTax,
+  quote,
+  deliveryCharge,
+  DEFAULT_DELIVERY_FEE,
+  DEFAULT_FREE_DELIVERY_ABOVE,
+} from '../lib/rules';
 import { validSignature } from '../lib/security';
 import { POST } from '../app/api/orders/route';
 test('household, bulk, and 50+ tier boundaries', () => {
@@ -31,13 +39,32 @@ test('quote recalculates from trusted catalogue and respects stock', () => {
   assert.throws(() => quote([{ id: 'basmati', quantity: 121 }]));
   assert.throws(() => quote([{ id: 'unknown', quantity: 1 }]));
 });
-test('a five-rupee biscuit is quoted and still pays the demo delivery fee under ₹999', () => {
+test('a five-rupee biscuit pays ₹25, and delivery is free at exactly ₹500', () => {
   const q = quote([{ id: 'biscuit', quantity: 1 }]);
   assert.equal(q.subtotal, 500);
   assert.equal(q.discount, 0);
-  assert.equal(q.delivery, 3900);
-  assert.equal(q.total, 4400);
+  assert.equal(q.delivery, 2500);
+  assert.equal(q.total, 3000);
   assert.equal(q.lines[0].gst, 18);
+  const exact = quote([{ id: 'biscuit', quantity: 100 }]);
+  assert.equal(exact.subtotal, 50000);
+  assert.equal(exact.delivery, 0);
+  assert.equal(exact.total, 50000);
+  const below = quote([{ id: 'biscuit', quantity: 99 }]);
+  assert.equal(below.subtotal, 49500);
+  assert.equal(below.delivery, 2500);
+  assert.equal(
+    deliveryCharge(DEFAULT_FREE_DELIVERY_ABOVE, DEFAULT_FREE_DELIVERY_ABOVE, DEFAULT_DELIVERY_FEE),
+    0,
+  );
+  assert.equal(
+    deliveryCharge(
+      DEFAULT_FREE_DELIVERY_ABOVE - 1,
+      DEFAULT_FREE_DELIVERY_ABOVE,
+      DEFAULT_DELIVERY_FEE,
+    ),
+    2500,
+  );
 });
 test('signatures reject tampering and malformed lengths', () => {
   const body = 'order_1|payment_1',
@@ -74,7 +101,7 @@ test('demo checkout validates and returns consistent receipt without charging', 
   const aj = await a.json(),
     bj = await b.json();
   assert.equal(aj.id, bj.id);
-  assert.equal(aj.total, 68800);
+  assert.equal(aj.total, 64900);
   assert.equal(aj.demo, true);
   assert.equal(aj.paymentStatus, 'COD_PENDING');
 });

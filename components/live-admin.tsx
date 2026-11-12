@@ -391,7 +391,7 @@ export default function LiveAdmin({ name = 'zebastore' }: { name?: string }) {
                         min="0"
                         max="1000"
                         step="0.01"
-                        defaultValue="39"
+                        defaultValue="25"
                         required
                       />
                     </label>
@@ -403,7 +403,7 @@ export default function LiveAdmin({ name = 'zebastore' }: { name?: string }) {
                         min="0"
                         max="100000"
                         step="0.01"
-                        defaultValue="999"
+                        defaultValue="500"
                         required
                       />
                     </label>
@@ -417,7 +417,7 @@ export default function LiveAdmin({ name = 'zebastore' }: { name?: string }) {
                         min="0"
                         max="100000"
                         step="0.01"
-                        defaultValue="25000"
+                        defaultValue="5000"
                         required
                       />
                     </label>

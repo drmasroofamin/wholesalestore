@@ -18,7 +18,7 @@ test('search, favourites, cart and demo checkout', async ({ page }) => {
   await page.getByLabel('Pincode', { exact: true }).fill('192210');
   await page.getByRole('button', { name: 'Place demo order' }).click();
   await expect(page.getByRole('heading', { name: 'Your demo order is placed!' })).toBeVisible();
-  await expect(page.getByRole('dialog')).toContainText('₹688');
+  await expect(page.getByRole('dialog')).toContainText('₹649');
   await page.reload();
   await page.getByRole('button', { name: 'Account', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'My orders', exact: true }).click();
@@ -32,11 +32,15 @@ test('glucose biscuit is listed at five rupees and can be added to the cart', as
   await expect(card).toHaveCount(1);
   await expect(card).toContainText('Glucose Biscuit');
   await expect(card).toContainText('₹5');
+  await expect(page.locator('.announcement')).toContainText(
+    'Free delivery on orders of ₹500 or more',
+  );
   await page.getByRole('button', { name: 'ADD', exact: true }).click();
   await page.getByRole('button', { name: /My cart/ }).click();
   await expect(page.getByRole('dialog')).toContainText('Glucose Biscuit');
-  await expect(page.getByRole('dialog')).toContainText('₹44');
-  await expect(page.getByRole('dialog')).toContainText('₹39');
+  await expect(page.getByRole('dialog')).toContainText('₹30');
+  await expect(page.getByRole('dialog')).toContainText('₹25');
+  await expect(page.getByRole('dialog')).toContainText('Add ₹495 for free delivery');
 });
 test('category filter, detail and responsive layout', async ({ page }) => {
   await page.goto('/');

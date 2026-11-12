@@ -3,5 +3,6 @@
   "framework": "nextjs",
   "buildCommand": "npm run db:migrate && npm run db:seed && npm run build",
   "regions": ["bom1"],
-  "functions": { "app/api/**/*.ts": { "maxDuration": 30 } }
+  "functions": { "app/api/**/*.ts": { "maxDuration": 30 } },
+  "crons": [{ "path": "/api/internal/slots", "schedule": "30 18 * * *" }]
 }
