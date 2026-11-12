@@ -1623,6 +1623,17 @@ footer {
   }
   .header-main > .brand {
     margin-right: auto;
+    min-width: 0;
+    flex: 1;
+  }
+  .header-main > .brand > div:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-main .account,
+  .header-main .cart-button {
+    flex-shrink: 0;
   }
   .header-action {
     margin-top: 6px;

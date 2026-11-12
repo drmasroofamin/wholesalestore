@@ -4,7 +4,7 @@ import { liveCatalog } from '@/lib/live-catalog';
 import { apiError } from '@/lib/http';
 import { maintainReservations } from '@/lib/maintenance';
 export const dynamic = 'force-dynamic';
-export async function GET() {
+export async function GET(request: Request) {
   if (!liveMode())
     return Response.json({ live: false }, { headers: { 'Cache-Control': 'no-store' } });
   try {
@@ -15,7 +15,7 @@ export async function GET() {
       liveCatalog(),
       db.deliveryZone.findMany({ where: { active: true }, orderBy: { pincode: 'asc' } }),
       db.deliverySlot.findMany({
-        where: { cutoffAt: { gt: new Date() } },
+        where: { cutoffAt: { gt: new Date() }, booked: { lt: db.deliverySlot.fields.capacity } },
         orderBy: { startsAt: 'asc' },
         take: 30,
       }),
@@ -52,7 +52,13 @@ export async function GET() {
               }).format(s.endsAt),
           })),
       },
-      { headers: { 'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=5' } },
+      {
+        headers: {
+          'Cache-Control': new URL(request.url).searchParams.has('refresh')
+            ? 'no-store'
+            : 'public, s-maxage=15, stale-while-revalidate=5',
+        },
+      },
     );
   } catch (e) {
     return apiError(e);

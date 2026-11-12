@@ -303,3 +303,37 @@ test('live API persists COD and reuses a single gateway order across retry', asy
     delete process.env.RAZORPAY_WEBHOOK_SECRET;
   }
 });
+
+test('store returns free slots beyond the first 30 full slots and bypasses cache on refresh', async () => {
+  await db.deliverySlot.deleteMany();
+  const base = Date.now() + 7200000;
+  await db.deliverySlot.createMany({
+    data: Array.from({ length: 31 }, (_, i) => ({
+      id: 'full-slot-' + i,
+      startsAt: new Date(base + i * 3600000),
+      endsAt: new Date(base + (i + 1) * 3600000),
+      cutoffAt: new Date(base + i * 3600000 - 3600000),
+      capacity: 1,
+      booked: 1,
+    })),
+  });
+  await db.deliverySlot.create({
+    data: {
+      id: 'available-after-full-slots',
+      startsAt: new Date(base + 32 * 3600000),
+      endsAt: new Date(base + 33 * 3600000),
+      cutoffAt: new Date(base + 31 * 3600000),
+      capacity: 2,
+      booked: 0,
+    },
+  });
+  const { GET } = await import('../../app/api/store/route');
+  const response = await GET(new Request('http://localhost:3000/api/store?refresh=1'));
+  assert.equal(response.status, 200);
+  const config = await response.json();
+  assert.deepEqual(
+    config.slots.map((s: { id: string }) => s.id),
+    ['available-after-full-slots'],
+  );
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+});

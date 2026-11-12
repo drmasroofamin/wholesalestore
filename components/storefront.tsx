@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { configureOfflineCatalogue } from '@/lib/offline';
 import { PINCODE_PATTERN, PINCODE_HINT } from '@/lib/pincode';
 import { loadRazorpay } from '@/lib/razorpay-browser';
@@ -60,54 +60,6 @@ export default function Storefront({
   const [store, setStore] = useState<StoreConfig | null>(null),
     [storeError, setStoreError] = useState(''),
     [checkoutPin, setCheckoutPin] = useState('');
-  useEffect(() => {
-    if (!live) return;
-    let cancelled = false;
-    fetch('/api/store')
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Store temporarily unavailable');
-        if (!data.live) throw new Error('Store mode changed. Please refresh.');
-        if (!cancelled) {
-          setStore(data);
-          setProducts(data.products);
-          try {
-            localStorage.setItem('gg-public-catalogue', JSON.stringify(data.products));
-          } catch {}
-          setCart((previous) =>
-            Object.fromEntries(
-              Object.entries(previous).filter(([id]) =>
-                data.products.some((product: Product) => product.id === id),
-              ),
-            ),
-          );
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setStoreError(error.message + ' Checkout is unavailable until the store reconnects.');
-          try {
-            const cached = JSON.parse(localStorage.getItem('gg-public-catalogue') || '[]');
-            if (
-              Array.isArray(cached) &&
-              cached.every(
-                (p) =>
-                  typeof p.id === 'string' &&
-                  typeof p.name === 'string' &&
-                  typeof p.hindi === 'string' &&
-                  typeof p.price === 'number' &&
-                  typeof p.stock === 'number',
-              )
-            )
-              setProducts(cached);
-          } catch {}
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [live]);
-
   const [category, setCategory] = useState('All essentials'),
     [search, setSearch] = useState(''),
     [cart, setCart] = useState<Cart>({}),
@@ -128,6 +80,76 @@ export default function Storefront({
     [payment, setPayment] = useState('COD'),
     [location, setLocation] = useState(live ? 'Choose delivery pincode' : 'Srinagar, 190001'),
     [pack, setPack] = useState('all');
+  const [slotsLoading, setSlotsLoading] = useState(live),
+    [selectedSlot, setSelectedSlot] = useState(live ? '' : 'Today, 4 PM – 7 PM');
+  const loadStore = useCallback(
+    async (fresh = false, signal?: AbortSignal) => {
+      if (!live) return;
+      setSlotsLoading(true);
+      try {
+        const response = await fetch(fresh ? '/api/store?refresh=1' : '/api/store', {
+          ...(fresh ? { cache: 'no-store' as const } : {}),
+          signal,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Store temporarily unavailable');
+        if (!data.live) throw new Error('Store mode changed. Please refresh.');
+        if (signal?.aborted) return;
+        setStore(data);
+        setProducts(data.products);
+        setStoreError('');
+        setSelectedSlot((previous) =>
+          data.slots.some((slot: { id: string }) => slot.id === previous) ? previous : '',
+        );
+        try {
+          localStorage.setItem('gg-public-catalogue', JSON.stringify(data.products));
+        } catch {}
+        setCart((previous) =>
+          Object.fromEntries(
+            Object.entries(previous).filter(([id]) =>
+              data.products.some((product: Product) => product.id === id),
+            ),
+          ),
+        );
+      } catch (error) {
+        if (signal?.aborted) return;
+        setStoreError(
+          (error instanceof Error ? error.message : 'Unable to refresh delivery slots') +
+            ' Checkout is unavailable until the store reconnects.',
+        );
+        try {
+          const cached = JSON.parse(localStorage.getItem('gg-public-catalogue') || '[]');
+          if (
+            Array.isArray(cached) &&
+            cached.every(
+              (p) =>
+                typeof p.id === 'string' &&
+                typeof p.name === 'string' &&
+                typeof p.hindi === 'string' &&
+                typeof p.price === 'number' &&
+                typeof p.stock === 'number',
+            )
+          )
+            setProducts(cached);
+        } catch {}
+      } finally {
+        if (!signal?.aborted) setSlotsLoading(false);
+      }
+    },
+    [live],
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadStore(false, controller.signal);
+    return () => controller.abort();
+  }, [loadStore]);
+  useEffect(() => {
+    if (!live || panel !== 'checkout') return;
+    const controller = new AbortController();
+    void loadStore(true, controller.signal);
+    return () => controller.abort();
+  }, [live, panel, loadStore]);
+
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('gg-cart') || '{}');
@@ -1133,11 +1155,22 @@ export default function Storefront({
                     </label>
                     <label>
                       Delivery slot
-                      <select name="slot" required defaultValue={live ? '' : undefined}>
+                      <select
+                        name="slot"
+                        required
+                        value={selectedSlot}
+                        onChange={(event) => setSelectedSlot(event.target.value)}
+                        disabled={live && (slotsLoading || !!storeError || !store?.slots.length)}
+                        aria-describedby={live ? 'delivery-slot-status' : undefined}
+                      >
                         {live ? (
                           <>
                             <option value="" disabled>
-                              Choose delivery slot
+                              {slotsLoading
+                                ? 'Loading delivery slots…'
+                                : !store?.slots.length
+                                  ? 'No delivery slots available'
+                                  : 'Choose delivery slot'}
                             </option>
                             {store?.slots.map((slot) => (
                               <option key={slot.id} value={slot.id}>
@@ -1155,6 +1188,42 @@ export default function Storefront({
                       </select>
                     </label>
                   </div>
+                  {live && (
+                    <div id="delivery-slot-status" role="status">
+                      {slotsLoading ? (
+                        <p className="muted">Checking available delivery times…</p>
+                      ) : storeError ? (
+                        <p className="demo-notice">
+                          Unable to refresh delivery slots. Try again before ordering.
+                        </p>
+                      ) : !store?.slots.length ? (
+                        <p className="demo-notice">
+                          No delivery slots are available right now. The store may need to add
+                          slots, or existing slots are full or past their cut-off. Please try
+                          refreshing or contact the store.
+                        </p>
+                      ) : (
+                        <p className="muted">Choose one of the available delivery times.</p>
+                      )}
+                      <button
+                        type="button"
+                        className="text-link"
+                        disabled={slotsLoading}
+                        onClick={() => void loadStore(true)}
+                      >
+                        Refresh delivery slots
+                      </button>
+                      {!slotsLoading && !store?.slots.length && store?.phone && (
+                        <a
+                          className="text-link"
+                          style={{ marginLeft: 16 }}
+                          href={`tel:${store.phone}`}
+                        >
+                          Contact store
+                        </a>
+                      )}
+                    </div>
+                  )}
                   {live &&
                     checkoutPin.length === 6 &&
                     !store?.zones.some((zone) => zone.pincode === checkoutPin) && (
@@ -1202,7 +1271,13 @@ export default function Storefront({
                       busy ||
                       !count ||
                       !summary ||
-                      (live && (!store || !store.acceptingOrders || !!storeError))
+                      (live &&
+                        (!store ||
+                          !store.acceptingOrders ||
+                          !!storeError ||
+                          slotsLoading ||
+                          !selectedSlot ||
+                          !store.slots.some((slot) => slot.id === selectedSlot)))
                     }
                     className="primary full"
                   >
